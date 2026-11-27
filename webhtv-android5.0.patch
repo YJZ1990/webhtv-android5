@@ -1,0 +1,141 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 50d66e3..cdcdc0b 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -54,7 +54,7 @@ android {
+         }
+         externalNativeBuild {
+             cmake {
+-                arguments "-DANDROID_PLATFORM=android-26"
++                arguments "-DANDROID_PLATFORM=android-21"
+                 cppFlags "-std=c++20", "-Wall", "-Wextra", "-Werror=return-type"
+             }
+         }
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index cd4974b..e734a80 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -1,7 +1,7 @@
+ [versions]
+ agp = "9.2.1"
+ python = "17.0.0"
+-minSdk = "24"
++minSdk = "21"
+ targetSdk = "28"
+ compileSdk = "37"
+ 
+diff --git a/scripts/build_exo_ass_native.py b/scripts/build_exo_ass_native.py
+index 54d838c..082310c 100644
+--- a/scripts/build_exo_ass_native.py
++++ b/scripts/build_exo_ass_native.py
+@@ -161,7 +161,7 @@ def main():
+     build = work / "arm64-v8a/jni"
+     run(["cmake", "-S", native, "-B", build, "-G", "Ninja",
+          "-DCMAKE_TOOLCHAIN_FILE=" + str(ndk / "build/cmake/android.toolchain.cmake"),
+-         "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-24",
++         "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-21",
+          "-DANDROID_STL=c++_static", "-DCMAKE_BUILD_TYPE=Release",
+          "-DASS_PREFIX=" + str(prefix)])
+     run(["cmake", "--build", build, "-j", args.jobs])
+diff --git a/scripts/build_mpv_native.sh b/scripts/build_mpv_native.sh
+index b007fdf..f49617a 100755
+--- a/scripts/build_mpv_native.sh
++++ b/scripts/build_mpv_native.sh
+@@ -389,9 +389,9 @@ if old_mark in text:
+ elif new_mark not in text:
+     raise SystemExit("unexpected upstream build marker layout")
+ old_api = "\tlocal apilvl=23\n"
+-new_api = "\tlocal apilvl=${android_api:-24}\n"
+-current_api = "\texport android_api=24\n"
+-locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-24}\n"
++new_api = "\tlocal apilvl=${android_api:-21}\n"
++current_api = "\texport android_api=21\n"
++locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-21}\n"
+ if old_api in text:
+     text = text.replace(old_api, new_api)
+ elif current_api in text:
+diff --git a/scripts/verify_exo_ass.py b/scripts/verify_exo_ass.py
+index 16a067b..4fb926a 100644
+--- a/scripts/verify_exo_ass.py
++++ b/scripts/verify_exo_ass.py
+@@ -51,7 +51,7 @@ def verify_native(work):
+     lock = json.loads((ROOT / "third_party/exo-ass-lock.json").read_text())
+     provenance = json.loads((NATIVE / "build-provenance.json").read_text())
+     require(lock["android"] == provenance["android"], "Android provenance mismatch")
+-    require(lock["android"]["api"] == 24 and lock["android"]["abis"] == ["arm64-v8a"], "Prototype ABI/API drift")
++    require(lock["android"]["api"] == 21 and lock["android"]["abis"] == ["arm64-v8a"], "Prototype ABI/API drift")
+     for name, source in lock["sources"].items():
+         identity = source.get("commit") or source["sha256"]
+         require(bool(re.fullmatch(r"[0-9a-f]{40}" if "commit" in source else r"[0-9a-f]{64}", identity)),
+@@ -93,7 +93,7 @@ def verify_native(work):
+                 offset += (descsz + 3) & ~3
+                 if name == b"Android" and note_type == 1:
+                     android_api = struct.unpack_from("<I", desc)[0]
+-    require(alignment and android_api == 24, "Missing API 24 Android note")
++    require(alignment and android_api == 21, "Missing API 21 Android note")
+     host = "darwin-x86_64" if platform.system() == "Darwin" else "linux-x86_64"
+     readelf = sdk_path() / "ndk" / lock["android"]["ndk"] / "toolchains/llvm/prebuilt" / host / "bin/llvm-readelf"
+     elf = subprocess.check_output([str(readelf), "-d", "-n", "--dyn-syms", str(lib)], text=True)
+diff --git a/third_party/dvd-native-lock.json b/third_party/dvd-native-lock.json
+index ca0310a..359e504 100644
+--- a/third_party/dvd-native-lock.json
++++ b/third_party/dvd-native-lock.json
+@@ -15,5 +15,5 @@
+     "libudfread_revision": "139a2194525f2745b98a98e4d8fa627d07440176"
+   },
+   "ndk": "28.2.13676358",
+-  "api": 24
++  "api": 21
+ }
+diff --git a/third_party/exo-ass-lock.json b/third_party/exo-ass-lock.json
+index 465aa98..af7ad7c 100644
+--- a/third_party/exo-ass-lock.json
++++ b/third_party/exo-ass-lock.json
+@@ -3,7 +3,7 @@
+   "scope": "E4-LIBASS gated standalone ASS: full external scripts and Media3 SSA packet bridge; no MPV or FFmpeg linkage",
+   "android": {
+     "ndk": "29.0.14206865",
+-    "api": 24,
++    "api": 21,
+     "abis": [
+       "arm64-v8a"
+     ],
+diff --git a/third_party/exo-ass-native/build-provenance.json b/third_party/exo-ass-native/build-provenance.json
+index 18bd12c..b710e4f 100644
+--- a/third_party/exo-ass-native/build-provenance.json
++++ b/third_party/exo-ass-native/build-provenance.json
+@@ -7,7 +7,7 @@
+   },
+   "android": {
+     "ndk": "29.0.14206865",
+-    "api": 24,
++    "api": 21,
+     "abis": [
+       "arm64-v8a"
+     ],
+diff --git a/third_party/mpv-native-lock.json b/third_party/mpv-native-lock.json
+index d9102c2..ae9bddf 100644
+--- a/third_party/mpv-native-lock.json
++++ b/third_party/mpv-native-lock.json
+@@ -6,7 +6,7 @@
+   "android": {
+     "ndk_version": "29.0.14206865",
+     "ndk_label": "r29",
+-    "api_level": 24
++    "api_level": 21
+   },
+   "python_tools": {
+     "meson": "1.11.2",
+diff --git a/third_party/mpv-native-overrides/shaderc.sh b/third_party/mpv-native-overrides/shaderc.sh
+index 88bd905..1055786 100755
+--- a/third_party/mpv-native-overrides/shaderc.sh
++++ b/third_party/mpv-native-overrides/shaderc.sh
+@@ -3,7 +3,7 @@
+ . ../../include/path.sh
+ . ../../include/depinfo.sh
+ 
+-: "${android_api:=24}"
++: "${android_api:=21}"
+ : "${prefix_name:=${ndk_suffix#_}}"
+ 
+ shaderc_dir="$DIR/deps/shaderc"

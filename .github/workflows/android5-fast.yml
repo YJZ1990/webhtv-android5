@@ -1,0 +1,131 @@
+name: WebHomeTV Android 5.0 - Fast APK
+
+# Builds a leanback (Android TV) release APK with minSdk=21 by applying the
+# Android 5.0 patch to a pinned upstream checkout. Release builds fall back to
+# the debug signing config when no keystore secrets exist, so no secrets are
+# required. Native .so files are the upstream API 24 binaries in this variant.
+
+on:
+  push:
+    paths:
+      - "webhtv-android5.0.patch"
+      - ".github/workflows/android5-fast.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Shanghai
+  SOURCE_REPO: https://github.com/Silent1566/webhtv.git
+  SOURCE_COMMIT: 3f469e2fe51716c2068a13b9d48f61de34a89e0d
+
+jobs:
+  build:
+    name: Build ${{ matrix.variant }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - LeanbackArm64_v8a
+          - LeanbackArmeabi_v7a
+
+    steps:
+      - name: Checkout build recipes
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: gradle
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platforms
+        run: |
+          sdkmanager "platform-tools" "platforms;android-28" "build-tools;36.0.0"
+          curl -fsSL -o /tmp/platform-37.zip https://dl.google.com/android/repository/platform-37.0_r01.zip
+          rm -rf /tmp/platform-37 "$ANDROID_HOME/platforms/android-37"
+          mkdir -p /tmp/platform-37 "$ANDROID_HOME/platforms"
+          unzip -q /tmp/platform-37.zip -d /tmp/platform-37
+          platform_jar="$(find /tmp/platform-37 -name android.jar -print -quit)"
+          test -n "$platform_jar"
+          mv "$(dirname "$platform_jar")" "$ANDROID_HOME/platforms/android-37"
+
+      - name: Clone upstream source and apply Android 5.0 patch
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" webhtv
+          cd webhtv
+          git checkout --detach "$SOURCE_COMMIT"
+          git apply ../webhtv-android5.0.patch
+          grep -q 'minSdk = "21"' gradle/libs.versions.toml
+          echo "Patch applied, minSdk=21 confirmed"
+
+      - name: Verify bundled native assets
+        working-directory: webhtv
+        run: bash scripts/verify_mpv_native_assets.sh --require-elf
+
+      - name: Assemble leanback release APK
+        working-directory: webhtv
+        run: |
+          chmod +x gradlew
+          ./gradlew ":app:assemble${{ matrix.variant }}Release" --no-daemon
+
+      - name: Collect APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          mapfile -t apks < <(find webhtv/Release/apk -maxdepth 1 -name '*.apk')
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "Expected exactly one APK, found ${#apks[@]}" >&2
+            exit 1
+          fi
+          cp "${apks[0]}" dist/
+          ls -lh dist/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ matrix.variant }}
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish fast APK release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apk-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="android5-fast-$(date +%Y%m%d%H%M)"
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          ls -lh dist/
+          gh release create "$TAG" dist/*.apk dist/SHA256SUMS.txt \
+            --title "WebHomeTV Android 5.0 Fast APK" \
+            --notes "minSdk=21, leanback TV build, debug-signed. Native .so files are still the upstream API 24 binaries; play stability on Android 5.0 is not yet verified. See android5-native workflow for the full API 21 rebuild." \
+            --prerelease
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_OUTPUT"
