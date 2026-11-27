@@ -25,7 +25,7 @@ index 54d838c..082310c 100644
           "-DASS_PREFIX=" + str(prefix)])
      run(["cmake", "--build", build, "-j", args.jobs])
 diff --git a/scripts/build_mpv_native.sh b/scripts/build_mpv_native.sh
-index b007fdf..f49617a 100755
+index b007fdf..6ca2b08 100755
 --- a/scripts/build_mpv_native.sh
 +++ b/scripts/build_mpv_native.sh
 @@ -389,9 +389,9 @@ if old_mark in text:
@@ -33,10 +33,9 @@ index b007fdf..f49617a 100755
      raise SystemExit("unexpected upstream build marker layout")
  old_api = "\tlocal apilvl=23\n"
 -new_api = "\tlocal apilvl=${android_api:-24}\n"
--current_api = "\texport android_api=24\n"
--locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-24}\n"
 +new_api = "\tlocal apilvl=${android_api:-21}\n"
-+current_api = "\texport android_api=21\n"
+ current_api = "\texport android_api=24\n"
+-locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-24}\n"
 +locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-21}\n"
  if old_api in text:
      text = text.replace(old_api, new_api)
