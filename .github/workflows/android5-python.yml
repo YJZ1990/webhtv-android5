@@ -116,16 +116,16 @@ jobs:
 
       - name: Publish build log on failure
         if: failure()
-        working-directory: webhtv
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           {
             echo "RUN=$GITHUB_RUN_ID JOB=$GITHUB_JOB VARIANT=${{ matrix.variant }}"
             echo "=== build.log tail 400 ==="
-            tail -400 build.log 2>/dev/null || echo "(no build.log)"
+            tail -400 webhtv/build.log 2>/dev/null || echo "(no build.log)"
           } > "/tmp/build-diag-$GITHUB_RUN_ID.txt"
           gh release create "diag-$GITHUB_RUN_ID-${{ matrix.variant }}" \
+            --repo "$GITHUB_REPOSITORY" \
             --notes-file "/tmp/build-diag-$GITHUB_RUN_ID.txt" \
             --title "Build diagnostics" --prerelease
 
