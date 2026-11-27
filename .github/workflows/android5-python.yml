@@ -76,12 +76,12 @@ jobs:
           git checkout --detach "$SOURCE_COMMIT"
           git apply ../webhtv-android5.0.patch
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
-          grep -q 'agp = "8.9.2"' gradle/libs.versions.toml
+          grep -q 'agp = "8.5.2"' gradle/libs.versions.toml
           grep -q 'compileSdk = "37"' gradle/libs.versions.toml
           grep -q 'python = "15.0.1"' gradle/libs.versions.toml
           grep -q 'id .com.chaquo.python.' chaquo/build.gradle
           test -f chaquo/src/main/python/app.py
-          echo "Patches applied: minSdk=21, AGP 8.9.2, compileSdk=37, Chaquopy 15.0.1, Python 3.8 spiders enabled"
+          echo "Patches applied: minSdk=21, AGP 8.5.2, compileSdk=37, Chaquopy 15.0.1, Python 3.8 spiders enabled"
 
       - name: Resolve dependencies and auto-override library minSdk
         working-directory: webhtv
