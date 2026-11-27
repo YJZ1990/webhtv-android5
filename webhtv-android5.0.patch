@@ -61,7 +61,7 @@ index 787135d..8fb57ac 100644
 +android.suppressUnsupportedCompileSdk=37
 \ No newline at end of file
 diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
-index cd4974b..3524db6 100644
+index cd4974b..b569fb6 100644
 --- a/gradle/libs.versions.toml
 +++ b/gradle/libs.versions.toml
 @@ -1,7 +1,7 @@
@@ -69,14 +69,14 @@ index cd4974b..3524db6 100644
 -agp = "9.2.1"
 -python = "17.0.0"
 -minSdk = "24"
-+agp = "8.5.2"
++agp = "8.9.2"
 +python = "15.0.1"
 +minSdk = "21"
  targetSdk = "28"
  compileSdk = "37"
  
 diff --git a/gradle/wrapper/gradle-wrapper.properties b/gradle/wrapper/gradle-wrapper.properties
-index 8562eb9..61dcef0 100644
+index 8562eb9..fb0e7f1 100644
 --- a/gradle/wrapper/gradle-wrapper.properties
 +++ b/gradle/wrapper/gradle-wrapper.properties
 @@ -1,7 +1,6 @@
@@ -85,7 +85,7 @@ index 8562eb9..61dcef0 100644
  distributionPath=wrapper/dists
 -distributionSha256Sum=bafc141b619ad6350fd975fc903156dd5c151998cc8b058e8c1044ab5f7b031f
 -distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-9.5.1-bin.zip
-+distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-8.7-bin.zip
++distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-8.11.1-bin.zip
  zipStoreBase=GRADLE_USER_HOME
  zipStorePath=wrapper/dists
 diff --git a/scripts/build_exo_ass_native.py b/scripts/build_exo_ass_native.py
