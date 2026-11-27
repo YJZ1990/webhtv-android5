@@ -55,7 +55,14 @@ jobs:
 
       - name: Install Android platforms
         run: |
-          sdkmanager "platform-tools" "platforms;android-28" "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platform-tools" "platforms;android-28" "build-tools;36.0.0"
+          curl -fsSL -o /tmp/platform-37.zip https://dl.google.com/android/repository/platform-37.0_r01.zip
+          rm -rf /tmp/platform-37 "$ANDROID_HOME/platforms/android-37"
+          mkdir -p /tmp/platform-37 "$ANDROID_HOME/platforms"
+          unzip -q /tmp/platform-37.zip -d /tmp/platform-37
+          platform_jar="$(find /tmp/platform-37 -name android.jar -print -quit)"
+          test -n "$platform_jar"
+          mv "$(dirname "$platform_jar")" "$ANDROID_HOME/platforms/android-37"
 
       - name: Clone upstream source and apply Android 5.0 patch
         run: |
@@ -65,12 +72,26 @@ jobs:
           git checkout --detach "$SOURCE_COMMIT"
           git apply ../webhtv-android5.0.patch
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
-          grep -q 'agp = "8.5.2"' gradle/libs.versions.toml
-          grep -q 'compileSdk = "35"' gradle/libs.versions.toml
+          grep -q 'agp = "9.2.1"' gradle/libs.versions.toml
+          grep -q 'compileSdk = "37"' gradle/libs.versions.toml
           grep -q 'python = "15.0.1"' gradle/libs.versions.toml
           grep -q 'id .com.chaquo.python.' chaquo/build.gradle
           test -f chaquo/src/main/python/app.py
-          echo "Patches applied: minSdk=21, compileSdk=35, AGP 8.5.2, Chaquopy 15.0.1, Python spiders enabled"
+          echo "Patches applied: minSdk=21, AGP 9.2.1, compileSdk=37, Chaquopy 15.0.1, Python 3.8 spiders enabled"
+
+      - name: Inject Gradle 9 compatibility shim for Chaquopy 15
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew --version > /tmp/gradle-version.txt 2>&1 || true
+          cat /tmp/gradle-version.txt
+          curl -fsSL -o /tmp/gradle-core-8.7.jar https://repo1.maven.org/maven2/org/gradle/gradle-core/8.7/gradle-core-8.7.jar
+          gradle_home="$(find "$HOME/.gradle/wrapper/dists/gradle-9.5.1-bin" -type d -name 'gradle-9.5.1' -print -quit)"
+          test -n "$gradle_home"
+          cp /tmp/gradle-core-8.7.jar "$gradle_home/lib/zz-versionnumber-shim.jar"
+          ls -lh "$gradle_home/lib/zz-versionnumber-shim.jar"
+          echo "Injected org.gradle.util.VersionNumber shim into $gradle_home/lib"
 
       - name: Resolve dependencies and auto-override library minSdk
         working-directory: webhtv
