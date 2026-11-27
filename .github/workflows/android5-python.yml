@@ -60,9 +60,13 @@ jobs:
           rm -rf /tmp/platform-37 "$ANDROID_HOME/platforms/android-37"
           mkdir -p /tmp/platform-37 "$ANDROID_HOME/platforms"
           unzip -q /tmp/platform-37.zip -d /tmp/platform-37
-          platform_jar="$(find /tmp/platform-37 -name android.jar -print -quit)"
-          test -n "$platform_jar"
-          mv "$(dirname "$platform_jar")" "$ANDROID_HOME/platforms/android-37"
+          props="$(find /tmp/platform-37 -name source.properties -print -quit)"
+          test -n "$props"
+          grep -q 'AndroidVersion.ApiLevel=37' "$props"
+          platform_root="$(dirname "$props")"
+          mv "$platform_root" "$ANDROID_HOME/platforms/android-37"
+          test -f "$ANDROID_HOME/platforms/android-37/source.properties"
+          cat "$ANDROID_HOME/platforms/android-37/source.properties"
 
       - name: Clone upstream source and apply Android 5.0 patch
         run: |
