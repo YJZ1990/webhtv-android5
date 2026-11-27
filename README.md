@@ -10,12 +10,12 @@
 
 ## 最新产物
 
-Release：`android5-python-202611271811`
+Release：`android5-python-202611272156`（run [46009672718](https://github.com/YJZ1990/webhtv-android5/actions/runs/46009672718)，success）
 
 | 文件 | 大小 (字节) | SHA256 |
 |---|---|---|
-| `leanback-arm64_v8a.apk` | 90,986,090 | `79d05e0b08b980bb87e3138f83944a01826e58f207e0648e18e751fea6ab3426` |
-| `leanback-armeabi_v7a.apk` | 85,113,006 | `4186b974ecd74e295e4524239880a929768a168a452e4ef01333e193828b7ea3` |
+| `leanback-arm64_v8a.apk` | 90,986,080 | `f26775b905f2ea1972678c34d57194909fc878e0f84c7adce3ee921ab74b3e37` |
+| `leanback-armeabi_v7a.apk` | 85,112,975 | `5207fc6c24ef748667bd14e061e599f6a3c24ff84ea8e2759eb385f3e1f27870` |
 
 已核验项：
 
