@@ -80,6 +80,20 @@ jobs:
           grep -q '"api_level": 21' third_party/mpv-native-lock.json
           echo "Patches applied, minSdk=21, native lock api_level=21, Chaquopy disabled"
 
+      - name: Provide Vulkan loader for API 21 link
+        # NDK exposes libvulkan.so only from API 24. Android 5.0 devices have no
+        # Vulkan loader anyway, so MPV loads it lazily; linking against the API 24
+        # stub keeps the .so at API 21 while leaving Vulkan code paths dormant.
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/29.0.14206865"
+          for arch in aarch64-linux-android arm-linux-androideabi; do
+            src="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$arch/24/libvulkan.so"
+            dst="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$arch/21/libvulkan.so"
+            if [ -f "$src" ] && [ ! -e "$dst" ]; then cp "$src" "$dst"; fi
+          done
+          ls -l "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/21/libvulkan.so"
+
       - name: Rebuild MPV native stack (both ABIs)
         working-directory: webhtv
         run: |
