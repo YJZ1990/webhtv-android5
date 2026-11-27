@@ -14,19 +14,36 @@ index 1dc5daa..317b6d3 100644
      <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
-index cd4974b..8f96ad2 100644
+index cd4974b..ccf8980 100644
 --- a/gradle/libs.versions.toml
 +++ b/gradle/libs.versions.toml
-@@ -1,7 +1,7 @@
+@@ -1,9 +1,9 @@
  [versions]
- agp = "9.2.1"
+-agp = "9.2.1"
 -python = "17.0.0"
 -minSdk = "24"
++agp = "8.5.2"
 +python = "15.0.1"
 +minSdk = "21"
  targetSdk = "28"
- compileSdk = "37"
+-compileSdk = "37"
++compileSdk = "35"
  
+ annotation = "1.10.0"
+ appcompat = "1.7.1"
+diff --git a/gradle/wrapper/gradle-wrapper.properties b/gradle/wrapper/gradle-wrapper.properties
+index 8562eb9..61dcef0 100644
+--- a/gradle/wrapper/gradle-wrapper.properties
++++ b/gradle/wrapper/gradle-wrapper.properties
+@@ -1,7 +1,6 @@
+ #Wed Apr 15 23:47:07 CST 2026
+ distributionBase=GRADLE_USER_HOME
+ distributionPath=wrapper/dists
+-distributionSha256Sum=bafc141b619ad6350fd975fc903156dd5c151998cc8b058e8c1044ab5f7b031f
+-distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-9.5.1-bin.zip
++distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-8.7-bin.zip
+ zipStoreBase=GRADLE_USER_HOME
+ zipStorePath=wrapper/dists
 diff --git a/scripts/build_exo_ass_native.py b/scripts/build_exo_ass_native.py
 index 54d838c..082310c 100644
 --- a/scripts/build_exo_ass_native.py
