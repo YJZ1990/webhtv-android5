@@ -13,6 +13,40 @@ index 1dc5daa..317b6d3 100644
      <uses-permission android:name="android.permission.INTERNET" />
      <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+diff --git a/chaquo/build.gradle b/chaquo/build.gradle
+index a449b8a..e024690 100644
+--- a/chaquo/build.gradle
++++ b/chaquo/build.gradle
+@@ -21,7 +21,7 @@ android {
+         minSdk libs.versions.minSdk.get().toInteger()
+         targetSdk libs.versions.targetSdk.get().toInteger()
+         python {
+-            version = "3.10"
++            version = "3.8"
+             if (chaquopyBuildPython) buildPython chaquopyBuildPython.toString()
+             pip {
+                 install("-r", "requirements.txt")
+diff --git a/chaquo/requirements.txt b/chaquo/requirements.txt
+index 9ac3183..be7144e 100644
+--- a/chaquo/requirements.txt
++++ b/chaquo/requirements.txt
+@@ -1,8 +1,8 @@
+-lxml
+-ujson
+-pyquery
+-requests
+-certifi
+-cachetools
+-pycryptodome
+-beautifulsoup4
++lxml==4.6.3
++ujson==1.35
++pyquery==1.4.3
++requests==2.31.0
++certifi==2023.11.17
++cachetools==5.3.3
++pycryptodome==3.9.4
++beautifulsoup4==4.12.3
 diff --git a/gradle.properties b/gradle.properties
 index 787135d..efdf05e 100644
 --- a/gradle.properties
