@@ -1,3 +1,22 @@
+diff --git a/app/build.gradle b/app/build.gradle
+index 50d66e3..970e944 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -84,6 +84,14 @@ android {
+         viewBinding = true
+     }
+ 
++    // AGP 8.5 forbids duplicate META-INF/versions/9/OSGI-INF/MANIFEST.MF from
++    // okhttp 5 / bcprov jars; these are build metadata, not runtime resources.
++    packagingOptions {
++        resources {
++            excludes += ['META-INF/versions/9/OSGI-INF/MANIFEST.MF']
++        }
++    }
++
+     testOptions {
+         unitTests.includeAndroidResources = true
+     }
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
 index 1dc5daa..317b6d3 100644
 --- a/app/src/main/AndroidManifest.xml
