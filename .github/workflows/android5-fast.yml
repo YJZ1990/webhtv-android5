@@ -9,6 +9,7 @@ on:
   push:
     paths:
       - "webhtv-android5.0.patch"
+      - "chaquopy-disable.patch"
       - ".github/workflows/android5-fast.yml"
   workflow_dispatch:
 
@@ -70,8 +71,9 @@ jobs:
           cd webhtv
           git checkout --detach "$SOURCE_COMMIT"
           git apply ../webhtv-android5.0.patch
+          git apply ../chaquopy-disable.patch
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
-          echo "Patch applied, minSdk=21 confirmed"
+          echo "Patches applied, minSdk=21 and Chaquopy disabled"
 
       - name: Verify bundled native assets
         working-directory: webhtv

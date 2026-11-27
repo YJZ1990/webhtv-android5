@@ -8,6 +8,7 @@ on:
   push:
     paths:
       - "webhtv-android5.0.patch"
+      - "chaquopy-disable.patch"
       - ".github/workflows/android5-native.yml"
   workflow_dispatch:
 
@@ -74,9 +75,10 @@ jobs:
           cd webhtv
           git checkout --detach "$SOURCE_COMMIT"
           git apply ../webhtv-android5.0.patch
+          git apply ../chaquopy-disable.patch
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
           grep -q '"api_level": 21' third_party/mpv-native-lock.json
-          echo "Patch applied, minSdk=21 and native lock api_level=21 confirmed"
+          echo "Patches applied, minSdk=21, native lock api_level=21, Chaquopy disabled"
 
       - name: Rebuild MPV native stack (both ABIs)
         working-directory: webhtv
@@ -186,6 +188,7 @@ jobs:
           cd webhtv
           git checkout --detach "$SOURCE_COMMIT"
           git apply ../webhtv-android5.0.patch
+          git apply ../chaquopy-disable.patch
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
 
       - name: Download rebuilt native assets

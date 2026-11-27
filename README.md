@@ -5,6 +5,7 @@
 ## 文件说明
 
 - `webhtv-android5.0.patch` — Android 5.0 适配补丁（10 个文件，13 增 13 删）
+- `chaquopy-disable.patch` — 禁用 Chaquopy Python 运行时（5 个文件，34 增 406 删）。Chaquopy 17 强制 minSdk≥24，支持 API 21 的 15.0 与项目 AGP 9.2 不兼容，因此用编译安全的空实现替换。**代价：Python 站源（.py）与 Python 字幕脚本不可用**；直播/点播/EPG/MPV 播放/JS 源/离线缓存/ASS 字幕全部保留。
   - 全局 `minSdk 24 → 21`
   - cmake platform `android-26 → android-21`
   - MPV / EXO-ASS / DVD native 锁定版本 `api 24 → 21`
