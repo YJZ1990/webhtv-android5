@@ -1,3 +1,18 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 1dc5daa..0fb7721 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -3,6 +3,10 @@
+     xmlns:tools="http://schemas.android.com/tools"
+     tools:ignore="ScopedStorage">
+ 
++    <!-- Android 5.0 build: tvbus AAR declares minSdk 24 but is only used for
++         tvbus:// sources; override so API 21 builds can proceed. -->
++    <uses-sdk tools:overrideLibrary="com.tvbus.engine" />
++
+     <uses-permission android:name="android.permission.INTERNET" />
+     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
 index cd4974b..e734a80 100644
 --- a/gradle/libs.versions.toml
