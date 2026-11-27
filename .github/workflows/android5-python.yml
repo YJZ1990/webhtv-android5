@@ -63,6 +63,10 @@ jobs:
           platform_jar="$(find /tmp/platform-37 -name android.jar -print -quit)"
           test -n "$platform_jar"
           mv "$(dirname "$platform_jar")" "$ANDROID_HOME/platforms/android-37"
+          # AGP 8.5 expects an integer ApiLevel; the official preview platform
+          # ships "AndroidVersion.ApiLevel=37.0", which it cannot parse.
+          sed -i 's/^AndroidVersion.ApiLevel=37\.0$/AndroidVersion.ApiLevel=37/' "$ANDROID_HOME/platforms/android-37/source.properties"
+          grep '^AndroidVersion.ApiLevel=' "$ANDROID_HOME/platforms/android-37/source.properties"
 
       - name: Clone upstream source and apply Android 5.0 patch
         run: |
@@ -72,36 +76,12 @@ jobs:
           git checkout --detach "$SOURCE_COMMIT"
           git apply ../webhtv-android5.0.patch
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
-          grep -q 'agp = "9.2.1"' gradle/libs.versions.toml
+          grep -q 'agp = "8.5.2"' gradle/libs.versions.toml
           grep -q 'compileSdk = "37"' gradle/libs.versions.toml
           grep -q 'python = "15.0.1"' gradle/libs.versions.toml
           grep -q 'id .com.chaquo.python.' chaquo/build.gradle
           test -f chaquo/src/main/python/app.py
-          echo "Patches applied: minSdk=21, AGP 9.2.1, compileSdk=37, Chaquopy 15.0.1, Python 3.8 spiders enabled"
-
-      - name: Inject Gradle 9 compatibility shim for Chaquopy 15
-        working-directory: webhtv
-        run: |
-          set -euo pipefail
-          chmod +x gradlew
-          ./gradlew --version > /tmp/gradle-version.txt 2>&1 || true
-          cat /tmp/gradle-version.txt
-          curl -fsSL -o /tmp/gradle-core-8.7.jar https://repo1.maven.org/maven2/org/gradle/gradle-core/8.7/gradle-core-8.7.jar
-          python3 - <<'PY'
-          import zipfile
-          with zipfile.ZipFile('/tmp/gradle-core-8.7.jar') as src, zipfile.ZipFile('/tmp/versionnumber-shim.jar', 'w') as dst:
-              names = [n for n in src.namelist() if n.startswith('org/gradle/util/VersionNumber')]
-              for n in names:
-                  dst.writestr(n, src.read(n))
-          print('shim classes:', len(names))
-          PY
-          gradle_home="$(find "$HOME/.gradle/wrapper/dists/gradle-9.5.1-bin" -type d -name 'gradle-9.5.1' -print -quit)"
-          test -n "$gradle_home"
-          cp /tmp/versionnumber-shim.jar "$gradle_home/lib/zz-versionnumber-shim.jar"
-          cp /tmp/versionnumber-shim.jar "$gradle_home/lib/plugins/zz-versionnumber-shim.jar"
-          ls -lh /tmp/versionnumber-shim.jar
-          echo "CHAQUOPY_SHIM_JAR=/tmp/versionnumber-shim.jar" >> "$GITHUB_ENV"
-          echo "Injected minimal VersionNumber shim into $gradle_home/lib and lib/plugins"
+          echo "Patches applied: minSdk=21, AGP 8.5.2, compileSdk=37, Chaquopy 15.0.1, Python 3.8 spiders enabled"
 
       - name: Resolve dependencies and auto-override library minSdk
         working-directory: webhtv
