@@ -30,3 +30,5 @@
 ## 手动触发
 
 在 GitHub 仓库 Actions 页面选择对应工作流，点击 "Run workflow"。
+
+# touched to retrigger build
