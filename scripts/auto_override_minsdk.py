@@ -46,6 +46,15 @@ packages.update({
     "androidx.navigation", "androidx.navigation.fragment", "androidx.navigation.ui",
     "androidx.media3.ui.danmaku", "io.github.anilbeesetti.nextlib.media3ext",
     "com.suyashbelekar.exoplayerhdrutils", "com.google.android.material",
+    "androidx.work", "androidx.work.ktx", "androidx.work.runtime.ktx",
+    "androidx.biometric", "androidx.media", "androidx.preference",
+    "androidx.palette", "androidx.recyclerview", "androidx.core",
+    "androidx.core.ktx", "androidx.annotation", "androidx.appcompat",
+    "androidx.leanback", "androidx.room", "androidx.room.ktx",
+    "androidx.startup", "androidx.swiperefreshlayout", "androidx.viewpager2",
+    "androidx.webkit", "androidx.drawerlayout", "androidx.constraintlayout",
+    "androidx.coordinatorlayout", "androidx.dynamicanimation",
+    "androidx.transition", "androidx.vectordrawable",
 })
 
 text = manifest.read_text(encoding="utf-8")
