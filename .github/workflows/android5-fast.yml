@@ -75,6 +75,15 @@ jobs:
           grep -q 'minSdk = "21"' gradle/libs.versions.toml
           echo "Patches applied, minSdk=21 and Chaquopy disabled"
 
+      - name: Resolve dependencies and auto-override library minSdk
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          # Resolve all dependencies so their AARs land in the Gradle cache.
+          ./gradlew :app:dependencies --configuration leanbackArm64_v8aReleaseRuntimeClasspath --no-daemon > /tmp/deps.txt 2>&1 || true
+          python3 ../scripts/auto_override_minsdk.py             app/src/main/AndroidManifest.xml             app/libs third_party/maven "$HOME/.gradle/caches/modules-2/files-2.1"
+
       - name: Verify bundled native assets
         working-directory: webhtv
         run: bash scripts/verify_mpv_native_assets.sh --require-elf
