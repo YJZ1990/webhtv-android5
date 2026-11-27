@@ -1,5 +1,5 @@
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
-index 1dc5daa..40855b3 100644
+index 1dc5daa..a7b69a8 100644
 --- a/app/src/main/AndroidManifest.xml
 +++ b/app/src/main/AndroidManifest.xml
 @@ -3,6 +3,10 @@
@@ -8,13 +8,13 @@ index 1dc5daa..40855b3 100644
  
 +    <!-- Android 5.0 build: these optional AARs declare minSdk 24 but are only
 +         used for their own source schemes; override so API 21 builds proceed. -->
-+    <uses-sdk tools:overrideLibrary="com.tvbus.engine,com.ghost.thunder,com.fongmi.hook,androidx.media3.common,androidx.media3.container,androidx.media3.database,androidx.media3.datasource,androidx.media3.datasource.okhttp,androidx.media3.datasource.rtmp,androidx.media3.decoder,androidx.media3.effect,androidx.media3.exoplayer,androidx.media3.exoplayer.dash,androidx.media3.exoplayer.hls,androidx.media3.exoplayer.rtsp,androidx.media3.exoplayer.smoothstreaming,androidx.media3.extractor,androidx.media3.session,androidx.media3.ui,androidx.media3.ui.danmaku,io.github.anilbeesetti.nextlib.media3ext,com.suyashbelekar.exoplayerhdrutils,androidx.annotation,androidx.appcompat,androidx.biometric,androidx.leanback,androidx.lifecycle,androidx.media,androidx.palette,androidx.preference,androidx.recyclerview,androidx.room,androidx.core,androidx.startup,androidx.swiperefreshlayout,androidx.viewpager2,androidx.webkit,androidx.work,androidx.test,androidx.test.ext" />
++    <uses-sdk tools:overrideLibrary="com.tvbus.engine,com.ghost.thunder,com.fongmi.hook,androidx.media3.common,androidx.media3.container,androidx.media3.database,androidx.media3.datasource,androidx.media3.datasource.okhttp,androidx.media3.datasource.rtmp,androidx.media3.decoder,androidx.media3.effect,androidx.media3.exoplayer,androidx.media3.exoplayer.dash,androidx.media3.exoplayer.hls,androidx.media3.exoplayer.rtsp,androidx.media3.exoplayer.smoothstreaming,androidx.media3.extractor,androidx.media3.session,androidx.media3.ui,androidx.media3.ui.danmaku,io.github.anilbeesetti.nextlib.media3ext,com.suyashbelekar.exoplayerhdrutils,com.google.android.material,androidx.annotation,androidx.appcompat,androidx.biometric,androidx.leanback,androidx.lifecycle,androidx.media,androidx.palette,androidx.preference,androidx.recyclerview,androidx.room,androidx.core,androidx.startup,androidx.swiperefreshlayout,androidx.viewpager2,androidx.webkit,androidx.work,androidx.test,androidx.test.ext" />
 +
      <uses-permission android:name="android.permission.INTERNET" />
      <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
      <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
-index cd4974b..7ec3e9e 100644
+index cd4974b..e734a80 100644
 --- a/gradle/libs.versions.toml
 +++ b/gradle/libs.versions.toml
 @@ -1,7 +1,7 @@
@@ -26,15 +26,6 @@ index cd4974b..7ec3e9e 100644
  targetSdk = "28"
  compileSdk = "37"
  
-@@ -45,7 +45,7 @@ jgit = "6.10.0.202406032230-r"
- jsoup = "1.22.2"
- logger = "2.2.0"
- lottie = "6.7.1"
--material = "1.14.0"
-+material = "1.12.0"
- materialdesigncolors = "1.0.0"
- media3 = "1.11.0-alpha01-fongmi"
- exoplayerHdrUtils = "0.4.0"
 diff --git a/scripts/build_exo_ass_native.py b/scripts/build_exo_ass_native.py
 index 54d838c..082310c 100644
 --- a/scripts/build_exo_ass_native.py

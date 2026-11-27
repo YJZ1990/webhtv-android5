@@ -98,7 +98,17 @@ jobs:
         working-directory: webhtv
         run: |
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/29.0.14206865"
-          bash scripts/build_mpv_native.sh --abi all --install --jobs 4
+          for attempt in 1 2 3; do
+            echo "MPV native build attempt $attempt"
+            if bash scripts/build_mpv_native.sh --abi all --install --jobs 4; then
+              exit 0
+            fi
+            echo "Attempt $attempt failed; cleaning mpv source and retrying"
+            rm -rf build/mpv-native/mpv-android/deps/mpv
+            sleep 10
+          done
+          echo "MPV native build failed after 3 attempts" >&2
+          exit 1
 
       - name: Rebuild EXO-ASS native
         working-directory: webhtv
