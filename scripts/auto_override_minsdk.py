@@ -36,6 +36,21 @@ for root in roots:
                     packages.add(pkg)
         except Exception:
             continue
+        # Also derive package candidates from the Gradle cache path:
+        # .../files-2.1/<group>/<artifact>/<version>/<hash>/<artifact>-<version>.aar
+        parts = Path(aar).parts
+        if "files-2.1" in parts:
+            i = parts.index("files-2.1")
+            if i + 2 < len(parts):
+                group, artifact = parts[i + 1], parts[i + 2]
+                base = f"{group}.{artifact}"
+                packages.add(base)
+                packages.add(base.replace("-", "."))
+                # KTX / -ktx artifacts declare manifests with a .ktx suffix.
+                if artifact.endswith("-ktx") or "-ktx" in artifact:
+                    packages.add(base + ".ktx")
+                    packages.add(base.replace("-", ".") + ".ktx")
+                    packages.add(group + "." + artifact.replace("-ktx", ".ktx"))
 
 # Known transitive packages whose AAR may not be cached locally at scan time.
 packages.update({
