@@ -2,7 +2,8 @@ name: WebHomeTV Android 5.0 - Python Spiders (Chaquopy 15)
 
 # Restores Python-based site sources on API 21 by using the last Chaquopy line
 # that officially supports minSdk 21 (15.0.1) together with AGP 8.5 / Gradle 8.7.
-# Native .so files are the upstream API 24 binaries in this variant.
+# Native .so files come from the upstream prebuilts: most are API 21; exo_ass (24),
+# media3ext (23) and exo_dovi_renderer (26) stay higher and degrade on Android 5.0.
 
 on:
   push:
@@ -119,20 +120,18 @@ jobs:
           echo "Exceeded 80 attempts resolving minSdk conflicts" >&2
           exit 1
 
-      - name: Publish build log on failure
+      - name: Print build log tail on failure
         if: failure()
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          {
-            echo "RUN=$GITHUB_RUN_ID JOB=$GITHUB_JOB VARIANT=${{ matrix.variant }}"
-            echo "=== build.log tail 400 ==="
-            tail -400 webhtv/build.log 2>/dev/null || echo "(no build.log)"
-          } > "/tmp/build-diag-$GITHUB_RUN_ID.txt"
-          gh release create "diag-$GITHUB_RUN_ID-${{ matrix.variant }}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --notes-file "/tmp/build-diag-$GITHUB_RUN_ID.txt" \
-            --title "Build diagnostics" --prerelease
+        run: tail -200 webhtv/build.log 2>/dev/null || echo "(no build.log)"
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ matrix.variant }}-${{ github.run_id }}
+          path: webhtv/build.log
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Verify Python runtime is packaged
         working-directory: webhtv
