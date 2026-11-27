@@ -1,5 +1,5 @@
 diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
-index 1dc5daa..a7b69a8 100644
+index 1dc5daa..317b6d3 100644
 --- a/app/src/main/AndroidManifest.xml
 +++ b/app/src/main/AndroidManifest.xml
 @@ -3,6 +3,10 @@
@@ -8,7 +8,7 @@ index 1dc5daa..a7b69a8 100644
  
 +    <!-- Android 5.0 build: these optional AARs declare minSdk 24 but are only
 +         used for their own source schemes; override so API 21 builds proceed. -->
-+    <uses-sdk tools:overrideLibrary="com.tvbus.engine,com.ghost.thunder,com.fongmi.hook,androidx.media3.common,androidx.media3.container,androidx.media3.database,androidx.media3.datasource,androidx.media3.datasource.okhttp,androidx.media3.datasource.rtmp,androidx.media3.decoder,androidx.media3.effect,androidx.media3.exoplayer,androidx.media3.exoplayer.dash,androidx.media3.exoplayer.hls,androidx.media3.exoplayer.rtsp,androidx.media3.exoplayer.smoothstreaming,androidx.media3.extractor,androidx.media3.session,androidx.media3.ui,androidx.media3.ui.danmaku,io.github.anilbeesetti.nextlib.media3ext,com.suyashbelekar.exoplayerhdrutils,com.google.android.material,androidx.annotation,androidx.appcompat,androidx.biometric,androidx.leanback,androidx.lifecycle,androidx.media,androidx.palette,androidx.preference,androidx.recyclerview,androidx.room,androidx.core,androidx.startup,androidx.swiperefreshlayout,androidx.viewpager2,androidx.webkit,androidx.work,androidx.test,androidx.test.ext" />
++    <uses-sdk tools:overrideLibrary="com.tvbus.engine,com.ghost.thunder,com.fongmi.hook,androidx.media3.common,androidx.media3.container,androidx.media3.database,androidx.media3.datasource,androidx.media3.datasource.okhttp,androidx.media3.datasource.rtmp,androidx.media3.decoder,androidx.media3.effect,androidx.media3.exoplayer,androidx.media3.exoplayer.dash,androidx.media3.exoplayer.hls,androidx.media3.exoplayer.rtsp,androidx.media3.exoplayer.smoothstreaming,androidx.media3.extractor,androidx.media3.session,androidx.media3.ui,androidx.media3.ui.danmaku,io.github.anilbeesetti.nextlib.media3ext,com.suyashbelekar.exoplayerhdrutils,com.google.android.material,androidx.annotation,androidx.appcompat,androidx.biometric,androidx.leanback,androidx.lifecycle,androidx.lifecycle.ktx,androidx.media,androidx.palette,androidx.preference,androidx.recyclerview,androidx.room,androidx.room.ktx,androidx.core,androidx.core.ktx,androidx.startup,androidx.swiperefreshlayout,androidx.viewpager2,androidx.webkit,androidx.work,androidx.work.ktx,androidx.savedstate,androidx.savedstate.ktx,androidx.activity,androidx.activity.compose,androidx.fragment,androidx.navigation,androidx.navigation.fragment,androidx.navigation.ui,androidx.drawerlayout,androidx.constraintlayout,androidx.coordinatorlayout,androidx.dynamicanimation,androidx.transition,androidx.vectordrawable,androidx.test,androidx.test.ext" />
 +
      <uses-permission android:name="android.permission.INTERNET" />
      <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
