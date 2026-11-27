@@ -90,8 +90,10 @@ jobs:
           gradle_home="$(find "$HOME/.gradle/wrapper/dists/gradle-9.5.1-bin" -type d -name 'gradle-9.5.1' -print -quit)"
           test -n "$gradle_home"
           cp /tmp/gradle-core-8.7.jar "$gradle_home/lib/zz-versionnumber-shim.jar"
-          ls -lh "$gradle_home/lib/zz-versionnumber-shim.jar"
-          echo "Injected org.gradle.util.VersionNumber shim into $gradle_home/lib"
+          cp /tmp/gradle-core-8.7.jar "$gradle_home/lib/plugins/zz-versionnumber-shim.jar"
+          ls -lh "$gradle_home/lib/zz-versionnumber-shim.jar" "$gradle_home/lib/plugins/zz-versionnumber-shim.jar"
+          echo "CHAQUOPY_SHIM_JAR=/tmp/gradle-core-8.7.jar" >> "$GITHUB_ENV"
+          echo "Injected org.gradle.util.VersionNumber shim into $gradle_home/lib and lib/plugins"
 
       - name: Resolve dependencies and auto-override library minSdk
         working-directory: webhtv
