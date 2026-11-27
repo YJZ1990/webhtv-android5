@@ -142,10 +142,13 @@ index 16a067b..4fb926a 100644
      readelf = sdk_path() / "ndk" / lock["android"]["ndk"] / "toolchains/llvm/prebuilt" / host / "bin/llvm-readelf"
      elf = subprocess.check_output([str(readelf), "-d", "-n", "--dyn-syms", str(lib)], text=True)
 diff --git a/settings.gradle b/settings.gradle
-index 7a09a68..217bf10 100644
+index 7a09a68..6b60ec1 100644
 --- a/settings.gradle
 +++ b/settings.gradle
-@@ -1,3 +1,11 @@
+@@ -12,6 +12,14 @@ plugins {
+     id "org.gradle.toolchains.foojay-resolver-convention" version "1.0.0"
+ }
+ 
 +buildscript {
 +    // Chaquopy 15 compatibility shim, see build.gradle.
 +    dependencies {
@@ -154,9 +157,9 @@ index 7a09a68..217bf10 100644
 +    }
 +}
 +
- pluginManagement {
+ dependencyResolutionManagement {
+     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
      repositories {
-         gradlePluginPortal()
 diff --git a/third_party/dvd-native-lock.json b/third_party/dvd-native-lock.json
 index ca0310a..359e504 100644
 --- a/third_party/dvd-native-lock.json
