@@ -1,3 +1,4 @@
+# retrigger: expanded minSdk override list
 name: WebHomeTV Android 5.0 - Fast APK
 
 # Builds a leanback (Android TV) release APK with minSdk=21 by applying the
