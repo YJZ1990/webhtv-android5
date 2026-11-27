@@ -95,7 +95,7 @@ jobs:
         run: |
           set -uo pipefail
           chmod +x gradlew
-          for attempt in $(seq 1 25); do
+          for attempt in $(seq 1 80); do
             echo "=== assemble attempt $attempt ==="
             if ./gradlew ":app:assemble${{ matrix.variant }}Release" --no-daemon 2>&1 | tee build.log; then
               echo "BUILD OK on attempt $attempt"
@@ -108,19 +108,26 @@ jobs:
             else
               echo "No minSdk suggestion found; build failed for another reason"
               tail -60 build.log
-              {
-                echo "RUN=$GITHUB_RUN_ID JOB=$GITHUB_JOB VARIANT=${{ matrix.variant }}"
-                echo "=== build.log tail 300 ==="
-                tail -300 build.log
-              } > "/tmp/diag-$GITHUB_RUN_ID.txt"
-              gh release create "diag-$GITHUB_RUN_ID-${{ matrix.variant }}" \
-                --notes-file "/tmp/diag-$GITHUB_RUN_ID.txt" \
-                --title "Build diagnostics" --prerelease || true
               exit 1
             fi
           done
-          echo "Exceeded 25 attempts resolving minSdk conflicts" >&2
+          echo "Exceeded 80 attempts resolving minSdk conflicts" >&2
           exit 1
+
+      - name: Publish build log on failure
+        if: failure()
+        working-directory: webhtv
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "RUN=$GITHUB_RUN_ID JOB=$GITHUB_JOB VARIANT=${{ matrix.variant }}"
+            echo "=== build.log tail 400 ==="
+            tail -400 build.log 2>/dev/null || echo "(no build.log)"
+          } > "/tmp/build-diag-$GITHUB_RUN_ID.txt"
+          gh release create "diag-$GITHUB_RUN_ID-${{ matrix.variant }}" \
+            --notes-file "/tmp/build-diag-$GITHUB_RUN_ID.txt" \
+            --title "Build diagnostics" --prerelease
 
       - name: Verify Python runtime is packaged
         working-directory: webhtv
