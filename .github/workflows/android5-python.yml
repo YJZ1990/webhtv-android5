@@ -24,6 +24,8 @@ jobs:
     name: Build ${{ matrix.variant }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +108,14 @@ jobs:
             else
               echo "No minSdk suggestion found; build failed for another reason"
               tail -60 build.log
+              {
+                echo "RUN=$GITHUB_RUN_ID JOB=$GITHUB_JOB VARIANT=${{ matrix.variant }}"
+                echo "=== build.log tail 300 ==="
+                tail -300 build.log
+              } > "/tmp/diag-$GITHUB_RUN_ID.txt"
+              b64="$(base64 -w0 "/tmp/diag-$GITHUB_RUN_ID.txt")"
+              gh api -X PUT "repos/$GITHUB_REPOSITORY/contents/BUILD_ERROR-$GITHUB_RUN_ID-${{ matrix.variant }}.txt" \
+                -f message="build diagnostics" -f content="$b64" -f branch="$GITHUB_REF_NAME" || true
               exit 1
             fi
           done
