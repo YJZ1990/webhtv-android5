@@ -1,0 +1,157 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index 1dc5daa..317b6d3 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -3,6 +3,10 @@
+     xmlns:tools="http://schemas.android.com/tools"
+     tools:ignore="ScopedStorage">
+ 
++    <!-- Android 5.0 build: these optional AARs declare minSdk 24 but are only
++         used for their own source schemes; override so API 21 builds proceed. -->
++    <uses-sdk tools:overrideLibrary="com.tvbus.engine,com.ghost.thunder,com.fongmi.hook,androidx.media3.common,androidx.media3.container,androidx.media3.database,androidx.media3.datasource,androidx.media3.datasource.okhttp,androidx.media3.datasource.rtmp,androidx.media3.decoder,androidx.media3.effect,androidx.media3.exoplayer,androidx.media3.exoplayer.dash,androidx.media3.exoplayer.hls,androidx.media3.exoplayer.rtsp,androidx.media3.exoplayer.smoothstreaming,androidx.media3.extractor,androidx.media3.session,androidx.media3.ui,androidx.media3.ui.danmaku,io.github.anilbeesetti.nextlib.media3ext,com.suyashbelekar.exoplayerhdrutils,com.google.android.material,androidx.annotation,androidx.appcompat,androidx.biometric,androidx.leanback,androidx.lifecycle,androidx.lifecycle.ktx,androidx.media,androidx.palette,androidx.preference,androidx.recyclerview,androidx.room,androidx.room.ktx,androidx.core,androidx.core.ktx,androidx.startup,androidx.swiperefreshlayout,androidx.viewpager2,androidx.webkit,androidx.work,androidx.work.ktx,androidx.savedstate,androidx.savedstate.ktx,androidx.activity,androidx.activity.compose,androidx.fragment,androidx.navigation,androidx.navigation.fragment,androidx.navigation.ui,androidx.drawerlayout,androidx.constraintlayout,androidx.coordinatorlayout,androidx.dynamicanimation,androidx.transition,androidx.vectordrawable,androidx.test,androidx.test.ext" />
++
+     <uses-permission android:name="android.permission.INTERNET" />
+     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+diff --git a/gradle/libs.versions.toml b/gradle/libs.versions.toml
+index cd4974b..3524db6 100644
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -1,7 +1,7 @@
+ [versions]
+-agp = "9.2.1"
+-python = "17.0.0"
+-minSdk = "24"
++agp = "8.5.2"
++python = "15.0.1"
++minSdk = "21"
+ targetSdk = "28"
+ compileSdk = "37"
+ 
+diff --git a/gradle/wrapper/gradle-wrapper.properties b/gradle/wrapper/gradle-wrapper.properties
+index 8562eb9..61dcef0 100644
+--- a/gradle/wrapper/gradle-wrapper.properties
++++ b/gradle/wrapper/gradle-wrapper.properties
+@@ -1,7 +1,6 @@
+ #Wed Apr 15 23:47:07 CST 2026
+ distributionBase=GRADLE_USER_HOME
+ distributionPath=wrapper/dists
+-distributionSha256Sum=bafc141b619ad6350fd975fc903156dd5c151998cc8b058e8c1044ab5f7b031f
+-distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-9.5.1-bin.zip
++distributionUrl=https://mirrors.huaweicloud.com/gradle/gradle-8.7-bin.zip
+ zipStoreBase=GRADLE_USER_HOME
+ zipStorePath=wrapper/dists
+diff --git a/scripts/build_exo_ass_native.py b/scripts/build_exo_ass_native.py
+index 54d838c..082310c 100644
+--- a/scripts/build_exo_ass_native.py
++++ b/scripts/build_exo_ass_native.py
+@@ -161,7 +161,7 @@ def main():
+     build = work / "arm64-v8a/jni"
+     run(["cmake", "-S", native, "-B", build, "-G", "Ninja",
+          "-DCMAKE_TOOLCHAIN_FILE=" + str(ndk / "build/cmake/android.toolchain.cmake"),
+-         "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-24",
++         "-DANDROID_ABI=arm64-v8a", "-DANDROID_PLATFORM=android-21",
+          "-DANDROID_STL=c++_static", "-DCMAKE_BUILD_TYPE=Release",
+          "-DASS_PREFIX=" + str(prefix)])
+     run(["cmake", "--build", build, "-j", args.jobs])
+diff --git a/scripts/build_mpv_native.sh b/scripts/build_mpv_native.sh
+index b007fdf..6ca2b08 100755
+--- a/scripts/build_mpv_native.sh
++++ b/scripts/build_mpv_native.sh
+@@ -389,9 +389,9 @@ if old_mark in text:
+ elif new_mark not in text:
+     raise SystemExit("unexpected upstream build marker layout")
+ old_api = "\tlocal apilvl=23\n"
+-new_api = "\tlocal apilvl=${android_api:-24}\n"
++new_api = "\tlocal apilvl=${android_api:-21}\n"
+ current_api = "\texport android_api=24\n"
+-locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-24}\n"
++locked_api = "\texport android_api=${WEBHTV_ANDROID_API_LEVEL:-21}\n"
+ if old_api in text:
+     text = text.replace(old_api, new_api)
+ elif current_api in text:
+diff --git a/scripts/verify_exo_ass.py b/scripts/verify_exo_ass.py
+index 16a067b..4fb926a 100644
+--- a/scripts/verify_exo_ass.py
++++ b/scripts/verify_exo_ass.py
+@@ -51,7 +51,7 @@ def verify_native(work):
+     lock = json.loads((ROOT / "third_party/exo-ass-lock.json").read_text())
+     provenance = json.loads((NATIVE / "build-provenance.json").read_text())
+     require(lock["android"] == provenance["android"], "Android provenance mismatch")
+-    require(lock["android"]["api"] == 24 and lock["android"]["abis"] == ["arm64-v8a"], "Prototype ABI/API drift")
++    require(lock["android"]["api"] == 21 and lock["android"]["abis"] == ["arm64-v8a"], "Prototype ABI/API drift")
+     for name, source in lock["sources"].items():
+         identity = source.get("commit") or source["sha256"]
+         require(bool(re.fullmatch(r"[0-9a-f]{40}" if "commit" in source else r"[0-9a-f]{64}", identity)),
+@@ -93,7 +93,7 @@ def verify_native(work):
+                 offset += (descsz + 3) & ~3
+                 if name == b"Android" and note_type == 1:
+                     android_api = struct.unpack_from("<I", desc)[0]
+-    require(alignment and android_api == 24, "Missing API 24 Android note")
++    require(alignment and android_api == 21, "Missing API 21 Android note")
+     host = "darwin-x86_64" if platform.system() == "Darwin" else "linux-x86_64"
+     readelf = sdk_path() / "ndk" / lock["android"]["ndk"] / "toolchains/llvm/prebuilt" / host / "bin/llvm-readelf"
+     elf = subprocess.check_output([str(readelf), "-d", "-n", "--dyn-syms", str(lib)], text=True)
+diff --git a/third_party/dvd-native-lock.json b/third_party/dvd-native-lock.json
+index ca0310a..359e504 100644
+--- a/third_party/dvd-native-lock.json
++++ b/third_party/dvd-native-lock.json
+@@ -15,5 +15,5 @@
+     "libudfread_revision": "139a2194525f2745b98a98e4d8fa627d07440176"
+   },
+   "ndk": "28.2.13676358",
+-  "api": 24
++  "api": 21
+ }
+diff --git a/third_party/exo-ass-lock.json b/third_party/exo-ass-lock.json
+index 465aa98..af7ad7c 100644
+--- a/third_party/exo-ass-lock.json
++++ b/third_party/exo-ass-lock.json
+@@ -3,7 +3,7 @@
+   "scope": "E4-LIBASS gated standalone ASS: full external scripts and Media3 SSA packet bridge; no MPV or FFmpeg linkage",
+   "android": {
+     "ndk": "29.0.14206865",
+-    "api": 24,
++    "api": 21,
+     "abis": [
+       "arm64-v8a"
+     ],
+diff --git a/third_party/exo-ass-native/build-provenance.json b/third_party/exo-ass-native/build-provenance.json
+index 18bd12c..b710e4f 100644
+--- a/third_party/exo-ass-native/build-provenance.json
++++ b/third_party/exo-ass-native/build-provenance.json
+@@ -7,7 +7,7 @@
+   },
+   "android": {
+     "ndk": "29.0.14206865",
+-    "api": 24,
++    "api": 21,
+     "abis": [
+       "arm64-v8a"
+     ],
+diff --git a/third_party/mpv-native-lock.json b/third_party/mpv-native-lock.json
+index d9102c2..ae9bddf 100644
+--- a/third_party/mpv-native-lock.json
++++ b/third_party/mpv-native-lock.json
+@@ -6,7 +6,7 @@
+   "android": {
+     "ndk_version": "29.0.14206865",
+     "ndk_label": "r29",
+-    "api_level": 24
++    "api_level": 21
+   },
+   "python_tools": {
+     "meson": "1.11.2",
+diff --git a/third_party/mpv-native-overrides/shaderc.sh b/third_party/mpv-native-overrides/shaderc.sh
+index 88bd905..1055786 100755
+--- a/third_party/mpv-native-overrides/shaderc.sh
++++ b/third_party/mpv-native-overrides/shaderc.sh
+@@ -3,7 +3,7 @@
+ . ../../include/path.sh
+ . ../../include/depinfo.sh
+ 
+-: "${android_api:=24}"
++: "${android_api:=21}"
+ : "${prefix_name:=${ndk_suffix#_}}"
+ 
+ shaderc_dir="$DIR/deps/shaderc"
