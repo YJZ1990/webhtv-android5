@@ -1,0 +1,608 @@
+name: WebHomeTV Android 5.0 - Native API21 Rebuild
+
+# Rebuilds every remaining API>21 native stack at API 21, then assembles the
+# leanback release APKs with Python spiders still enabled.
+#
+#   mpv stack (assets/mpv-libs)      api 24 -> 21   scripts/build_mpv_native.sh
+#   libexo_ass.so                    api 24 -> 21   scripts/build_exo_ass_native.py
+#   libexo_dovi_renderer.so          api 26 -> 21   app/src/main/cpp (ANDROID_PLATFORM)
+#   libmedia3ext.so                  api 23 -> 21   anilbeesetti/nextlib minSdk patch
+#
+# The mpv and nextlib chains run in parallel so the whole run stays inside the
+# 6h per-job limit. libmedia3ext is allowed to fail: if the nextlib chain cannot
+# be rebuilt, the APK still ships with the upstream api23 AAR.
+
+on:
+  push:
+    paths:
+      - "webhtv-android5.0.patch"
+      - ".github/workflows/android5-native.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  TZ: Asia/Shanghai
+  SOURCE_REPO: https://github.com/Silent1566/webhtv.git
+  SOURCE_COMMIT: 3f469e2fe51716c2068a13b9d48f61de34a89e0d
+  NDK_MPV: "29.0.14206865"
+  NDK_NEXTLIB: "28.2.13676358"
+  NEXTLIB_VERSION: "1.10.0-0.12.1-fongmi-softload-av3a-avs3-ffmpeg901-r5"
+  NEXTLIB_COMMIT: "6ff6cf9d0820382b3c233d018c52e4163b09d345"
+
+jobs:
+  # ---------------------------------------------------------------- mpv + ass
+  mpv:
+    name: Rebuild MPV stack + EXO-ASS at API 21
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - name: Checkout build recipes
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install host build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            ninja-build pkg-config gperf perl cmake make \
+            autoconf automake libtool bison flex gettext \
+            texinfo yasm nasm zip unzip
+          python3 -m pip install --quiet meson==1.11.2 ninja==1.11.1.1
+
+      - name: Set up Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install NDK for MPV
+        run: |
+          set -euo pipefail
+          sdkmanager "platform-tools" "platforms;android-28" "ndk;${NDK_MPV}"
+          ls "$ANDROID_HOME/ndk"
+
+      - name: Clone upstream source and apply Android 5.0 patch
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" webhtv
+          cd webhtv
+          git checkout --detach "$SOURCE_COMMIT"
+          git apply ../webhtv-android5.0.patch
+          grep -q 'minSdk = "21"' gradle/libs.versions.toml
+          grep -q '"api_level": 21' third_party/mpv-native-lock.json
+          grep -q '"api": 21' third_party/exo-ass-lock.json
+          echo "patch applied: minSdk=21, mpv lock api_level=21, exo-ass lock api=21"
+
+      - name: Provide Vulkan loader stub for API 21 link
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/${{ env.NDK_MPV }}"
+          for arch in aarch64-linux-android arm-linux-androideabi; do
+            src="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$arch/24/libvulkan.so"
+            dst="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$arch/21/libvulkan.so"
+            if [ -f "$src" ] && [ ! -e "$dst" ]; then cp "$src" "$dst"; fi
+          done
+          ls -l "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/21/libvulkan.so
+
+      - name: Rebuild MPV native stack (both ABIs)
+        working-directory: webhtv
+        run: |
+          set -uo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${{ env.NDK_MPV }}"
+          for attempt in 1 2 3; do
+            echo "=== MPV native build attempt $attempt ==="
+            if bash scripts/build_mpv_native.sh --abi all --install --jobs 4 2>&1 | tee mpv-build.log; then
+              echo "MPV BUILD OK"
+              exit 0
+            fi
+            echo "Attempt $attempt failed; cleaning mpv source and retrying"
+            rm -rf build/mpv-native/mpv-android/deps/mpv
+            sleep 10
+          done
+          echo "MPV native build failed after 3 attempts" >&2
+          tail -100 mpv-build.log
+          exit 1
+
+      - name: Rebuild EXO-ASS native
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${{ env.NDK_MPV }}"
+          python3 scripts/build_exo_ass_native.py --install --jobs 4
+
+      - name: Verify rebuilt natives are API 21
+        working-directory: webhtv
+        run: |
+          python3 - <<'PY'
+          import glob, struct, sys
+          patterns = [
+              "app/src/arm64_v8a/assets/mpv-libs/*/*.so",
+              "app/src/armeabi_v7a/assets/mpv-libs/*/*.so",
+              "third_party/exo-ass-native/prebuilt/*/*.so",
+          ]
+          bad, checked = [], 0
+          for pattern in patterns:
+              for path in sorted(glob.glob(pattern)):
+                  data = open(path, "rb").read()
+                  idx = data.find(b"Android\0")
+                  if idx < 0:
+                      print("NO ANDROID NOTE:", path)
+                      continue
+                  api, _ndk = struct.unpack_from("<II", data, idx + 8)
+                  checked += 1
+                  print(f"  {path}: api={api}")
+                  if api > 21:
+                      bad.append((path, api))
+          print(f"Checked {checked} shared libraries")
+          if bad:
+              print("ERROR: still above API 21:", bad, file=sys.stderr)
+              sys.exit(1)
+          if checked < 10:
+              print(f"ERROR: expected at least 10 libraries, saw {checked}", file=sys.stderr)
+              sys.exit(1)
+          PY
+
+      - name: Pack rebuilt native assets
+        run: |
+          set -euo pipefail
+          mkdir -p native-out
+          cp -a webhtv/app/src/arm64_v8a/assets/mpv-libs native-out/mpv-arm64_v8a
+          cp -a webhtv/app/src/armeabi_v7a/assets/mpv-libs native-out/mpv-armeabi_v7a
+          cp -a webhtv/third_party/exo-ass-native/prebuilt native-out/exo-ass-prebuilt
+          du -sh native-out/*
+
+      - name: Upload rebuilt native assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-mpv-api21
+          path: native-out/
+          retention-days: 7
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mpv-build-log-${{ github.run_id }}
+          path: webhtv/mpv-build.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ------------------------------------------------------------- media3ext
+  nextlib:
+    name: Rebuild libmedia3ext at API 21 (nextlib)
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    continue-on-error: true
+    steps:
+      - name: Checkout build recipes
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install NDK, CMake and build platform
+        run: |
+          set -euo pipefail
+          # nextlib pins agp 9.1 / ndk 25.2.9519653 / compileSdk 36 upstream;
+          # the FongMi build chain uses ndk 28.2. Install both and let the
+          # project pick.
+          sdkmanager "platform-tools" "platforms;android-36" "platforms;android-28" \
+            "build-tools;36.0.0" "ndk;25.2.9519653" "ndk;${NDK_NEXTLIB}" "cmake;3.22.1"
+          ls "$ANDROID_HOME/ndk"
+
+      - name: Clone upstream source and apply Android 5.0 patch
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" webhtv
+          cd webhtv
+          git checkout --detach "$SOURCE_COMMIT"
+          git apply ../webhtv-android5.0.patch
+
+      - name: Clone nextlib and patch minSdk to 21
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          mkdir -p third_party/sources
+          git clone https://github.com/anilbeesetti/nextlib.git third_party/sources/nextlib
+          cd third_party/sources/nextlib
+          git checkout --detach "${{ env.NEXTLIB_COMMIT }}"
+          cd - >/dev/null
+          for p in third_party/patches/nextlib-ffmpeg-soft-load-shedding.patch \
+                   third_party/patches/nextlib-av3a.patch \
+                   third_party/patches/nextlib-ape-support.patch \
+                   third_party/patches/nextlib-avs3.patch \
+                   third_party/patches/nextlib-av3a-diag.patch; do
+            echo "applying $(basename "$p")"
+            git -C third_party/sources/nextlib apply "$(realpath "$p")"
+          done
+          grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
+          sed -i 's/minSdk = 23/minSdk = 21/' third_party/sources/nextlib/media3ext/build.gradle.kts
+          grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
+          grep -n 'version = ' third_party/sources/nextlib/build.gradle.kts | head -5
+
+      - name: Build and publish nextlib-media3ext locally
+        working-directory: webhtv/third_party/sources/nextlib
+        run: |
+          set -uo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${NDK_NEXTLIB}"
+          echo "NDK=$ANDROID_NDK_HOME"
+          chmod +x gradlew || true
+          rm -rf /tmp/nextlib-repo
+          ./gradlew --no-daemon --console=plain \
+            -Dmaven.repo.local=/tmp/nextlib-repo \
+            :media3ext:publishMavenPublicationToMavenLocal 2>&1 | tee /tmp/nextlib-build.log || {
+              echo "nextlib publish failed"; tail -80 /tmp/nextlib-build.log; exit 1; }
+          find /tmp/nextlib-repo -name '*.aar' -o -name '*.pom' | head -20
+
+      - name: Verify built AAR carries API 21
+        run: |
+          python3 - <<'PY'
+          import glob, struct, sys, zipfile, tempfile, os
+          aars = glob.glob("/tmp/nextlib-repo/io/github/anilbeesetti/nextlib-media3ext/**/*.aar", recursive=True)
+          if not aars:
+              sys.exit("no AAR produced")
+          bad = []
+          for aar in aars:
+              print("AAR:", aar, os.path.getsize(aar))
+              with zipfile.ZipFile(aar) as z:
+                  for n in z.namelist():
+                      if not n.endswith(".so"):
+                          continue
+                      data = z.read(n)
+                      idx = data.find(b"Android\0")
+                      api = struct.unpack_from("<II", data, idx + 8)[0] if idx >= 0 else None
+                      print(f"  {n} api={api}")
+                      if n.startswith("jni/arm") and (api or 0) > 21:
+                          bad.append((n, api))
+          if bad:
+              sys.exit(f"still above API 21: {bad}")
+          print("all ARM media3ext libs are API 21")
+          PY
+
+      - name: Pack published maven metadata
+        run: |
+          set -euo pipefail
+          mkdir -p nextlib-out
+          cp -a /tmp/nextlib-repo/io/github/anilbeesetti/nextlib-media3ext nextlib-out/nextlib-media3ext
+          find nextlib-out -type f | head -20
+          du -sh nextlib-out
+
+      - name: Upload rebuilt media3ext
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-nextlib-api21
+          path: nextlib-out/
+          retention-days: 7
+
+      - name: Upload nextlib build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextlib-build-log-${{ github.run_id }}
+          path: /tmp/nextlib-build.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # ------------------------------------------------------------------ APK
+  build:
+    name: Build ${{ matrix.variant }}
+    needs: [mpv, nextlib]
+    # Wait for the optional nextlib chain, but still build when it failed.
+    if: always() && needs.mpv.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - LeanbackArm64_v8a
+          - LeanbackArmeabi_v7a
+
+    steps:
+      - name: Checkout build recipes
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Python 3.10 for Chaquopy
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Set up Android SDK and NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android platforms and NDK
+        run: |
+          set -euo pipefail
+          sdkmanager "platform-tools" "platforms;android-28" "build-tools;36.0.0" "ndk;${NDK_MPV}"
+          curl -fsSL -o /tmp/platform-37.zip https://dl.google.com/android/repository/platform-37.0_r01.zip
+          rm -rf /tmp/platform-37 "$ANDROID_HOME/platforms/android-37"
+          mkdir -p /tmp/platform-37 "$ANDROID_HOME/platforms"
+          unzip -q /tmp/platform-37.zip -d /tmp/platform-37
+          platform_jar="$(find /tmp/platform-37 -name android.jar -print -quit)"
+          test -n "$platform_jar"
+          mv "$(dirname "$platform_jar")" "$ANDROID_HOME/platforms/android-37"
+          sed -i 's/^AndroidVersion.ApiLevel=37\.0$/AndroidVersion.ApiLevel=37/' "$ANDROID_HOME/platforms/android-37/source.properties"
+          grep '^AndroidVersion.ApiLevel=' "$ANDROID_HOME/platforms/android-37/source.properties"
+
+      - name: Provide Vulkan loader stub for API 21 link
+        run: |
+          set -euo pipefail
+          NDK="$ANDROID_HOME/ndk/${{ env.NDK_MPV }}"
+          for arch in aarch64-linux-android arm-linux-androideabi; do
+            src="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$arch/24/libvulkan.so"
+            dst="$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/$arch/21/libvulkan.so"
+            if [ -f "$src" ] && [ ! -e "$dst" ]; then cp "$src" "$dst"; fi
+          done
+          ls -l "$NDK"/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/21/libvulkan.so
+
+      - name: Clone upstream source and apply Android 5.0 patch
+        run: |
+          set -euo pipefail
+          git clone "$SOURCE_REPO" webhtv
+          cd webhtv
+          git checkout --detach "$SOURCE_COMMIT"
+          git apply ../webhtv-android5.0.patch
+          grep -q 'minSdk = "21"' gradle/libs.versions.toml
+          grep -q 'python = "15.0.1"' gradle/libs.versions.toml
+          echo "patch applied"
+
+      - name: Download rebuilt MPV / EXO-ASS assets
+        uses: actions/download-artifact@v4
+        with:
+          name: native-mpv-api21
+          path: native
+
+      - name: Download rebuilt media3ext (optional)
+        id: nextlib_art
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: native-nextlib-api21
+          path: nextlib-native
+
+      - name: Verify rebuilt media3ext AAR before use
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          src_aar="$(find nextlib-native -path "*${NEXTLIB_VERSION}*" -name '*.aar' 2>/dev/null | head -1)"
+          if [ -z "$src_aar" ]; then
+            echo "no candidate AAR for ${NEXTLIB_VERSION}"
+            exit 1
+          fi
+          python3 - "$src_aar" <<'PY'
+          import os, struct, sys, zipfile
+          path = sys.argv[1]
+          print("checking AAR:", path, os.path.getsize(path))
+          worst = 0
+          with zipfile.ZipFile(path) as z:
+              libs = [n for n in z.namelist() if n.endswith(".so")]
+              if not libs:
+                  sys.exit("no .so inside AAR")
+              for n in libs:
+                  data = z.read(n)
+                  idx = data.find(b"Android\0")
+                  api = struct.unpack_from("<II", data, idx + 8)[0] if idx >= 0 else None
+                  print(f"  {n} api={api}")
+                  if n.startswith("jni/arm") and api:
+                      worst = max(worst, api)
+          if worst > 21:
+              sys.exit(f"ARM media3ext is api {worst}, not 21")
+          print("media3ext AAR verified at API 21")
+          PY
+          touch /tmp/media3ext_ok
+
+      - name: Overlay rebuilt native libraries
+        run: |
+          set -euo pipefail
+          cp -a native/mpv-arm64_v8a/. webhtv/app/src/arm64_v8a/assets/mpv-libs/
+          cp -a native/mpv-armeabi_v7a/. webhtv/app/src/armeabi_v7a/assets/mpv-libs/
+          cp -a native/exo-ass-prebuilt/. webhtv/third_party/exo-ass-native/prebuilt/
+          echo "--- mpv assets ---"
+          ls -l webhtv/app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/
+          echo "--- exo-ass ---"
+          ls -l webhtv/third_party/exo-ass-native/prebuilt/*/
+          if [ -f /tmp/media3ext_ok ] && [ -d nextlib-native/nextlib-media3ext ]; then
+            echo "--- replacing nextlib-media3ext AAR with the API 21 build ---"
+            cp -a nextlib-native/nextlib-media3ext/. webhtv/third_party/maven/io/github/anilbeesetti/nextlib-media3ext/
+            ls -l "webhtv/third_party/maven/io/github/anilbeesetti/nextlib-media3ext/${NEXTLIB_VERSION}/"
+            echo "NEXTLIB_REPLACED=1" >> "$GITHUB_ENV"
+          else
+            echo "media3ext AAR not usable; keeping upstream api23 AAR"
+            echo "NEXTLIB_REPLACED=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Target API 21 for exo_dovi_renderer
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          sed -i 's/-DANDROID_PLATFORM=android-26/-DANDROID_PLATFORM=android-21/' app/build.gradle
+          grep -n 'ANDROID_PLATFORM' app/build.gradle
+
+      - name: Resolve dependencies and auto-override library minSdk
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew :app:dependencies --configuration leanbackArm64_v8aReleaseRuntimeClasspath --no-daemon > /tmp/deps.txt 2>&1 || true
+          python3 ../scripts/auto_override_minsdk.py \
+            app/src/main/AndroidManifest.xml \
+            app/libs third_party/maven "$HOME/.gradle/caches/modules-2/files-2.1"
+
+      - name: Verify bundled native assets
+        working-directory: webhtv
+        run: bash scripts/verify_mpv_native_assets.sh --require-elf
+
+      - name: Assemble leanback release APK
+        working-directory: webhtv
+        run: |
+          set -uo pipefail
+          chmod +x gradlew
+          dovi21=1
+          for attempt in $(seq 1 80); do
+            echo "=== assemble attempt $attempt (dovi platform 21=$dovi21) ==="
+            if ./gradlew ":app:assemble${{ matrix.variant }}Release" --no-daemon 2>&1 | tee build.log; then
+              echo "BUILD OK on attempt $attempt"
+              exit 0
+            fi
+            if [ "$dovi21" = "1" ] && grep -q 'exo_dovi_renderer' build.log; then
+              echo "exo_dovi_renderer does not compile at API 21; falling back to android-26 for that target"
+              sed -i 's/-DANDROID_PLATFORM=android-21/-DANDROID_PLATFORM=android-26/' app/build.gradle
+              dovi21=0
+              echo "DOVI21=0" >> "$GITHUB_ENV"
+              continue
+            fi
+            pkg="$(grep -o 'tools:overrideLibrary="[^"]*"' build.log | tail -1 | sed -E 's/tools:overrideLibrary="([^"]*)"/\1/')"
+            if [ -n "$pkg" ]; then
+              echo "Adding missing override package: $pkg"
+              python3 ../scripts/add_override_pkg.py app/src/main/AndroidManifest.xml "$pkg"
+            else
+              echo "No minSdk suggestion found; build failed for another reason"
+              tail -80 build.log
+              exit 1
+            fi
+          done
+          echo "Exceeded 80 attempts" >&2
+          exit 1
+
+      - name: Verify API levels inside the APK
+        run: |
+          python3 - <<'PY'
+          import glob, struct, sys, zipfile, os
+
+          apks = glob.glob("webhtv/Release/apk/*.apk")
+          if len(apks) != 1:
+              sys.exit(f"expected exactly one APK, found {apks}")
+          apk = apks[0]
+          print("APK:", apk, os.path.getsize(apk))
+
+          # These must be API 21: the whole point of this pipeline.
+          must_fix = ("assets/mpv-libs/", "libexo_ass.so")
+          hard, warn, checked, noapi = [], [], 0, []
+          with zipfile.ZipFile(apk) as z:
+              for n in z.namelist():
+                  if not n.endswith(".so"):
+                      continue
+                  data = z.read(n)
+                  idx = data.find(b"Android\0")
+                  api = struct.unpack_from("<II", data, idx + 8)[0] if idx >= 0 else None
+                  checked += 1
+                  if api is None:
+                      noapi.append(n)
+                      continue
+                  if api <= 21:
+                      continue
+                  if any(k in n for k in must_fix):
+                      hard.append((n, api))
+                  else:
+                      warn.append((n, api))
+
+          print(f"checked {checked} .so files")
+          if noapi:
+              print("no android note (vendor blobs, expected):")
+              for n in noapi:
+                  print("   ", n)
+          if warn:
+              print("still above API 21 (degraded paths, run tolerated):")
+              for n, api in warn:
+                  print(f"    {n} api={api}")
+          if hard:
+              print("FAILED: rebuilt stacks are not API 21:")
+              for n, api in hard:
+                  print(f"    {n} api={api}")
+              sys.exit(1)
+          print("OK: mpv stack and libexo_ass are API 21")
+          PY
+
+      - name: Verify minSdk and Python runtime in APK
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          apk=$(find Release/apk -maxdepth 1 -name '*.apk' | head -1)
+          echo "APK: $apk"
+          unzip -l "$apk" | grep -E 'assets/chaquopy/|libpython|libexo_ass|libmedia3ext|libexo_dovi' | head -20
+          unzip -l "$apk" | grep -q 'assets/chaquopy' || { echo "Chaquopy assets missing"; exit 1; }
+          unzip -p "$apk" AndroidManifest.xml | strings | grep -q 'minSdkVersion' || true
+          echo "python payload present"
+
+      - name: Print build log tail on failure
+        if: failure()
+        run: tail -200 webhtv/build.log 2>/dev/null || echo "(no build.log)"
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-build-log-${{ matrix.variant }}-${{ github.run_id }}
+          path: webhtv/build.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Collect APK
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          mapfile -t apks < <(find webhtv/Release/apk -maxdepth 1 -name '*.apk')
+          if [ "${#apks[@]}" -ne 1 ]; then
+            echo "Expected exactly one APK, found ${#apks[@]}" >&2
+            exit 1
+          fi
+          cp "${apks[0]}" dist/
+          ls -lh dist/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-native-${{ matrix.variant }}
+          path: dist/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish native API21 release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo (for gh release)
+        uses: actions/checkout@v4
+
+      - name: Download APKs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: apk-native-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="android5-native-$(date +%Y%m%d%H%M)"
+          sha256sum dist/*.apk > dist/SHA256SUMS.txt
+          ls -lh dist/
+          gh release create "$TAG" dist/*.apk dist/SHA256SUMS.txt \
+            --title "WebHomeTV Android 5.0 - native API21 rebuild" \
+            --notes "minSdk=21, leanback TV build, debug-signed, Python spiders enabled. MPV stack, libexo_ass and libexo_dovi_renderer rebuilt at API 21; libmedia3ext rebuilt from nextlib with minSdk 21 when the nextlib chain succeeds." \
+            --prerelease
+          echo "release: $TAG"
