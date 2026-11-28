@@ -108,6 +108,24 @@ jobs:
           tail -100 mpv-build.log
           exit 1
 
+      - name: Rebuild libplayer.so JNI bridge (both ABIs)
+        working-directory: webhtv
+        run: |
+          set -euo pipefail
+          export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${{ env.NDK_MPV }}"
+          # The committed libplayer.so is api24 and nothing else rebuilds it, so
+          # link it against the fresh prefix at the lock's api level.
+          bash scripts/build_mpv_player_jni.sh --abi all --install
+          for lib in app/src/arm64_v8a/assets/mpv-libs/arm64-v8a/libplayer.so \
+                     app/src/armeabi_v7a/assets/mpv-libs/armeabi-v7a/libplayer.so; do
+            python3 - "$lib" <<'PY'
+          import struct, sys
+          data = open(sys.argv[1], "rb").read()
+          idx = data.find(b"Android\0")
+          print(sys.argv[1], "api=", struct.unpack_from("<II", data, idx + 8)[0] if idx >= 0 else None)
+          PY
+          done
+
       - name: Rebuild EXO-ASS native
         working-directory: webhtv
         run: |

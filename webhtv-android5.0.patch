@@ -259,3 +259,19 @@ index 88bd905..1055786 100755
  : "${prefix_name:=${ndk_suffix#_}}"
  
  shaderc_dir="$DIR/deps/shaderc"
+diff --git a/third_party/mpv-player-jni/src/main.cpp b/third_party/mpv-player-jni/src/main.cpp
+index c8128ff..9841ccd 100644
+--- a/third_party/mpv-player-jni/src/main.cpp
++++ b/third_party/mpv-player-jni/src/main.cpp
+@@ -149,7 +149,11 @@ jni_func(void, init) {
+         return;
+     }
+     g_event_thread_started = true;
++    // pthread_setname_np only exists from API 26; the name is purely diagnostic,
++    // so Android 5.0 (API 21) builds simply skip it.
++#if __ANDROID_API__ >= 26
+     pthread_setname_np(event_thread_id, "event_thread");
++#endif
+     result = pthread_detach(event_thread_id);
+     if (result != 0)
+         ALOGE("pthread_detach failed (%d: %s)", result, strerror(result));
