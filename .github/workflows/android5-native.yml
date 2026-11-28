@@ -217,25 +217,28 @@ jobs:
           set -euo pipefail
           mkdir -p third_party/sources
           git clone https://github.com/anilbeesetti/nextlib.git third_party/sources/nextlib
-          cd third_party/sources/nextlib
-          git checkout --detach "${{ env.NEXTLIB_COMMIT }}"
-          cd - >/dev/null
-          for p in third_party/patches/nextlib-ffmpeg-soft-load-shedding.patch \
-                   third_party/patches/nextlib-av3a.patch \
-                   third_party/patches/nextlib-ape-support.patch \
-                   third_party/patches/nextlib-avs3.patch \
-                   third_party/patches/nextlib-av3a-diag.patch; do
-            echo "applying $(basename "$p")"
-            # These patches are committed with CRLF line endings, which
-            # `git apply` rejects as corrupt. GNU patch strips the bare CRs,
-            # same fallback upstream uses in scripts/build_media_deps.sh.
-            if git -C third_party/sources/nextlib apply --check "$p" 2>/dev/null; then
-              git -C third_party/sources/nextlib apply "$p"
-            else
-              echo "  git apply rejected it; using GNU patch"
-              patch -p1 -d third_party/sources/nextlib < "$p"
-            fi
+          git -C third_party/sources/nextlib checkout --detach "$NEXTLIB_COMMIT"
+
+          # The committed patch series has CRLF endings, no trailing newline and
+          # at least one hunk header whose line counts do not match its body, so
+          # both `git apply` and GNU patch reject it. Repair the copies first.
+          series=(nextlib-ffmpeg-soft-load-shedding nextlib-av3a nextlib-ape-support nextlib-avs3 nextlib-av3a-diag)
+          rm -rf /tmp/nl-patches /tmp/nl-patches-fixed
+          mkdir -p /tmp/nl-patches
+          for name in "${series[@]}"; do
+            cp "third_party/patches/$name.patch" /tmp/nl-patches/
           done
+          python3 ../scripts/repair_nextlib_patches.py /tmp/nl-patches /tmp/nl-patches-fixed
+          for name in "${series[@]}"; do
+            echo "applying $name.patch"
+            git -C third_party/sources/nextlib apply "/tmp/nl-patches-fixed/$name.patch"
+          done
+          git -C third_party/sources/nextlib diff --stat | tail -3
+
+          grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
+          sed -i 's/minSdk = 23/minSdk = 21/' third_party/sources/nextlib/media3ext/build.gradle.kts
+          grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
+          grep -n 'version' third_party/sources/nextlib/build.gradle.kts | head -3
           grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
           sed -i 's/minSdk = 23/minSdk = 21/' third_party/sources/nextlib/media3ext/build.gradle.kts
           grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
