@@ -226,7 +226,15 @@ jobs:
                    third_party/patches/nextlib-avs3.patch \
                    third_party/patches/nextlib-av3a-diag.patch; do
             echo "applying $(basename "$p")"
-            git -C third_party/sources/nextlib apply "$(realpath "$p")"
+            # These patches are committed with CRLF line endings, which
+            # `git apply` rejects as corrupt. GNU patch strips the bare CRs,
+            # same fallback upstream uses in scripts/build_media_deps.sh.
+            if git -C third_party/sources/nextlib apply --check "$p" 2>/dev/null; then
+              git -C third_party/sources/nextlib apply "$p"
+            else
+              echo "  git apply rejected it; using GNU patch"
+              patch -p1 -d third_party/sources/nextlib < "$p"
+            fi
           done
           grep -n 'minSdk' third_party/sources/nextlib/media3ext/build.gradle.kts
           sed -i 's/minSdk = 23/minSdk = 21/' third_party/sources/nextlib/media3ext/build.gradle.kts
