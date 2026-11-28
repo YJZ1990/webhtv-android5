@@ -182,14 +182,19 @@ jobs:
           def dynsyms(path):
               out = subprocess.run([readelf, "--dyn-syms", "-W", path],
                                    capture_output=True, text=True).stdout
-              defined, undefined = set(), set()
+              defined, weak, strong = set(), set(), set()
               for line in out.splitlines():
                   parts = line.split()
                   if len(parts) < 8 or not parts[0].endswith(":"):
                       continue
                   name = parts[7].split("@")[0]
-                  (undefined if parts[6] == "UND" else defined).add(name)
-              return defined, undefined
+                  if parts[6] != "UND":
+                      defined.add(name)
+                  elif parts[4] == "WEAK":
+                      weak.add(name)
+                  else:
+                      strong.add(name)
+              return defined, weak, strong
 
           allowed = set()
           for arch in ("aarch64-linux-android", "arm-linux-androideabi"):
@@ -204,14 +209,21 @@ jobs:
 
           unresolved = 0
           for lib in libs:
-              missing = sorted(s for s in dynsyms(lib)[1] if s not in allowed and s not in bundled)
-              print(f"{'OK' if not missing else 'UNRESOLVED':>10}  {lib} ({len(missing)})")
+              _defined, weak, strong = dynsyms(lib)
+              # Weak undefined entries are optional at load time (libc++ and FFmpeg
+              # probe them at runtime); only strong references can block dlopen.
+              missing = sorted(s for s in strong if s not in allowed and s not in bundled)
+              optional = sorted(s for s in weak if s not in allowed and s not in bundled)
+              print(f"{'OK' if not missing else 'UNRESOLVED':>10}  {lib} "
+                    f"(strong={len(missing)} weak={len(optional)})")
               for name in missing:
-                  print("              ", name)
+                  print("               STRONG", name)
+              for name in optional:
+                  print("               weak  ", name)
               unresolved += len(missing)
           print(f"libs={len(libs)} api21_stub_symbols={len(allowed)} unresolved={unresolved}")
           if unresolved:
-              print("NOTE: the symbols listed above are absent from the API 21 stubs; "
+              print("NOTE: strong symbols above are absent from the API 21 stubs; "
                     "those libraries would fail to load on Android 5.0")
           PY
 

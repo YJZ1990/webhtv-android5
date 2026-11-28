@@ -4,29 +4,54 @@
 
 ## 工作流
 
-唯一工作流：`.github/workflows/android5-python.yml` — **爬虫源（Python 站源）可用**。
+| 工作流 | 用途 | 说明 |
+|---|---|---|
+| `.github/workflows/android5-native.yml` | **主用** | 用 NDK 把所有 `api>21` 的原生栈重编到 API 21，再出包。默认由 `webhtv-android5.0.patch` 变更触发 |
+| `.github/workflows/android5-python.yml` | 备用 | 只用上游预编译 `.so` 出包（ASS/media3ext/dovi 仍为 24/23/26），验证 Chaquopy 15 链路 |
 
-工具链组合：Chaquopy 15.0.1 + Python 3.8 + AGP 8.5.2 + Gradle 8.7 + compileSdk 37 + minSdk 21。
+工具链组合：Chaquopy 15.0.1 + Python 3.8 + AGP 8.5.2 + Gradle 8.7 + compileSdk 37 + minSdk 21 + NDK 29.0.14206865。
 
 ## 最新产物
 
-Release：`android5-python-202611272156`（run [46009672718](https://github.com/YJZ1990/webhtv-android5/actions/runs/46009672718)，success）
+Release：`android5-native-202611280952`（run [46092721074](https://github.com/YJZ1990/webhtv-android5/actions/runs/46092721074)，success）
 
 | 文件 | 大小 (字节) | SHA256 |
 |---|---|---|
-| `leanback-arm64_v8a.apk` | 90,986,080 | `f26775b905f2ea1972678c34d57194909fc878e0f84c7adce3ee921ab74b3e37` |
-| `leanback-armeabi_v7a.apk` | 85,112,975 | `5207fc6c24ef748667bd14e061e599f6a3c24ff84ea8e2759eb385f3e1f27870` |
+| `leanback-arm64_v8a.apk` | 91,030,719 | `8e7b3260f8f4476ca8c47705d24a872ed070dedfbc5be9e9c8b88be1809f03b8` |
+| `leanback-armeabi_v7a.apk` | 85,163,750 | `77d5cbea9bb4172f48e2ffb8b41d604de6f4b37d26a1f9e80c1d810438ce5832` |
 
-已核验项：
+已核验项（本地解析 APK 实测，非构建日志转述）：
 
-| 检查 | 结果 |
-|---|---|
-| `uses-sdk minSdkVersion` | 21（两个 APK 均如此） |
-| `targetSdkVersion` / `compileSdkVersion` | 28 / 37 |
-| Python 运行时 | `libpython3.8.so`、`libchaquopy_java.so` 已打包 |
-| Python 依赖 | lxml 4.6.3、pyquery 1.4.3、requests 2.31.0、beautifulsoup4 4.12.3、ujson 1.35、pycryptodome 3.9.4 全部在位 |
-| 爬虫入口 | `assets/chaquopy/app.imy` 含 `app.py`、`runner.py`、`trigger.py`、`base/spider.py` |
-| native 库 API 级别 | 25 个库为 api21；`libexo_ass.so`=24、`libmedia3ext.so`=23、`libexo_dovi_renderer.so`=26 |
+| 检查 | arm64-v8a | armeabi-v7a |
+|---|---|---|
+| `minSdkVersion` / `targetSdkVersion` / `compileSdkVersion` | 21 / 28 / 37 | 21 / 28 / 37 |
+| `versionName` / `versionCode` | 5.6.0 / 560 | 5.6.0 / 560 |
+| api21 原生库数量 | 46 | 44 |
+| `libexo_ass.so`（ASS 字幕） | **api 21**（原 24） | 不打包（arm64 专用） |
+| `libmedia3ext.so` | **api 21**（原 23） | **api 21**（原 23） |
+| `libplayer.so` / mpv 栈 10 库 | **api 21**（原 24） | **api 21**（原 24） |
+| `libexo_dovi_renderer.so` | api 26（保持，运行时门控） | api 26（保持，运行时门控） |
+| Python 运行时 | `libpython3.8.so` + `assets/chaquopy/app.imy` 在位 | 同左 |
+
+## native 重编记录（本轮）
+
+四个原生栈的 API 级别来源各不相同，逐个处理：
+
+| 栈 | 原 API | 处理方式 |
+|---|---|---|
+| mpv 全栈（`assets/mpv-libs/*`，10 个库） | 24 | `build_mpv_native.sh` 的 `android_api` 默认值 24→21，NDK 29 源码重编（1490 个对象） |
+| `libplayer.so`（mpv JNI 桥） | 24 | **三不管文件**：`build_mpv_native.sh` 明确保留仓库预编译件，Gradle 的 `externalNativeBuild` 只编 `exo_dovi_renderer`。改为在 mpv 阶段执行 `build_mpv_player_jni.sh --abi all --install` 从源码重链 |
+| `libexo_ass.so`（ASS 字幕） | 24 | `build_exo_ass_native.py` 的 meson cross 文件从 lock 的 `api` 派生工具链三元组（原写死 `android24-clang`） |
+| `libmedia3ext.so` | 23 | nextlib `media3ext/build.gradle.kts` minSdk 23→21 + 补丁系列修复后重编 |
+
+**关键坑：依赖编译 API 与最终链接 API 必须一致。** `build_exo_ass_native.py` 原来用 `aarch64-linux-android24-clang` 编依赖（freetype/fontconfig/libxml2/harfbuzz/libass），却按 `ANDROID_PLATFORM=android-21` 链接 `libexo_ass.so`。NDK 头文件按 `__ANDROID_API__` 分支：
+
+- API ≥ 23：`stdout`/`stderr` 是真正的 `extern FILE*`，`strerror_r` 解析到 `__gnu_strerror_r`，有 `mkostemp`
+- API < 23：`stdout` 是 `(&__sF[1])` 宏，走 posix `strerror_r`，无 `mkostemp`
+
+于是链接报 4 个未定义符号：`stdout`、`stderr`、`mkostemp`、`__gnu_strerror_r`。修复后依赖与最终 `.so` 都在 API 21 编译，符号自然对齐。
+
+另外 `third_party/mpv-player-jni/src/main.cpp` 的 `pthread_setname_np` 是 API 26+，在 `-Werror` 下编译失败，已改为按 `__ANDROID_API__ >= 26` 条件编译（纯调试用途）。
 
 ## 爬虫源方案要点
 
@@ -44,11 +69,16 @@ Chaquopy 16 起强制 minSdk ≥ 24（官方原因是 API21/23 动态链接器�
 
 构建产物中 Python 版 APK 比无 Python 版大约 13 MB，即 Chaquopy 运行时 + stdlib + 依赖包。
 
-## 已知限制
+## 已知限制（均为上游既有设计，非本轮引入）
 
-- `libexo_ass.so`(api24)、`libmedia3ext.so`(api23)、`libexo_dovi_renderer.so`(api26) 沿用上游预编译产物。Android 5.0 设备上 ASS 特效字幕、Dolby Vision 渲染可能加载失败并降级（普通字幕/播放不受影响）。
-- 如需把这几个库也降到 api21，需用 NDK 重编对应 native 模块。
-- 未配置发布 keystore，`app/build.gradle` 自动回退 debug 签名，可直接侧载；覆盖安装需先卸载其他签名的同包名版本。
+| 项 | 现状 | 影响 |
+|---|---|---|
+| `libexo_dovi_renderer.so` = api26 | `ExoDv5Native.loadLibrary()` 有 `SDK_INT < 26` 提前 return，Android 5 上不会 `dlopen`；其内部用 `AHardwareBuffer`/`AImageReader`（NDK 24/26 引入），物理上无法编到 21 | Dolby Vision 仅在 Android 8.0+ 可用，低版本走 HDR10 基础路径，不崩 |
+| mpv 栈强引用 `vkCreateSamplerYcbcrConversion` 等 Vulkan 1.1 符号 | 依赖系统 `libvulkan.so`（Android 7.0+）。Android 5/6 无此库 | `MPVLib.ensureLoaded()` 整体 try/catch，失败返回 false，播放器回退到 Exo/IJK，不崩 |
+| `assets/lab/proot/libandroid-shmem.so` = api24 | proot 沙箱内的辅助库 | 仅影响 lab/proot 终端实验功能 |
+| `libmitv.so`/`libjpa.so`/`libxl_stat.so` 等 | 第三方 blob，无 Android note | 与 API 级别检查无关（本来就没有） |
+| FFmpeg 系库弱引用 `memfd_create`（API 30）、libc++ 弱引用 `__cxa_thread_atexit_impl` | 弱符号，缺失时为 NULL，运行时自动降级 | 无影响。工作流内"未解析符号"报告只看强引用 |
+| 未配置发布 keystore | `app/build.gradle` 自动回退 debug 签名 | 可直接侧载；覆盖安装需先卸载其他签名的同包名版本 |
 
 ## 上游基准
 
@@ -57,8 +87,8 @@ Chaquopy 16 起强制 minSdk ≥ 24（官方原因是 API21/23 动态链接器�
 
 ## 改用无 Python 版本
 
-若不想要 Chaquopy，可从 `android5-python` 的补丁里去掉 `chaquo/build.gradle` 的 `com.chaquo.python` 插件与 `chaquo` 模块依赖，并把 `gradle/libs.versions.toml` 的 `python` 版本行删掉；此时 APK 约小 13 MB，但 Python 站源与 Python 字幕脚本不可用。
+若不想要 Chaquopy，可从补丁里去掉 `chaquo/build.gradle` 的 `com.chaquo.python` 插件与 `chaquo` 模块依赖，并把 `gradle/libs.versions.toml` 的 `python` 版本行删掉；此时 APK 约小 13 MB，但 Python 站源与 Python 字幕脚本不可用。
 
 ## 手动触发
 
-在 GitHub 仓库 Actions 页面选择 `WebHomeTV Android 5.0 - Python Spiders (Chaquopy 15)`，点击 "Run workflow"。
+在 GitHub 仓库 Actions 页面选择 `WebHomeTV Android 5.0 - Native API21 Rebuild`，点击 "Run workflow"。

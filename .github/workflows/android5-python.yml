@@ -2,14 +2,12 @@ name: WebHomeTV Android 5.0 - Python Spiders (Chaquopy 15)
 
 # Restores Python-based site sources on API 21 by using the last Chaquopy line
 # that officially supports minSdk 21 (15.0.1) together with AGP 8.5 / Gradle 8.7.
-# Native .so files come from the upstream prebuilts: most are API 21; exo_ass (24),
-# media3ext (23) and exo_dovi_renderer (26) stay higher and degrade on Android 5.0.
+# Falls back to the upstream prebuilts, so exo_ass (24), media3ext (23) and
+# exo_dovi_renderer (26) stay above API 21. The native workflow supersedes it:
+# it rebuilds those stacks at API 21 and still ships the Python spiders, so this
+# one is manual-only to avoid publishing a second, less capable APK per patch.
 
 on:
-  push:
-    paths:
-      - "webhtv-android5.0.patch"
-      - ".github/workflows/android5-python.yml"
   workflow_dispatch:
 
 permissions:
