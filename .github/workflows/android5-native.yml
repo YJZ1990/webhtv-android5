@@ -111,9 +111,13 @@ jobs:
       - name: Rebuild EXO-ASS native
         working-directory: webhtv
         run: |
-          set -euo pipefail
+          set -uo pipefail
           export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/${{ env.NDK_MPV }}"
-          python3 scripts/build_exo_ass_native.py --install --jobs 4
+          if ! python3 scripts/build_exo_ass_native.py --install --jobs 4 2>&1 | tee exo-ass-build.log; then
+            echo "EXO-ASS native build failed" >&2
+            tail -60 exo-ass-build.log
+            exit 1
+          fi
 
       - name: Verify rebuilt natives are API 21
         working-directory: webhtv
@@ -147,6 +151,52 @@ jobs:
               sys.exit(1)
           PY
 
+      - name: Report unresolved symbols against the API 21 stubs
+        working-directory: webhtv
+        run: |
+          python3 - "$ANDROID_HOME/ndk/${{ env.NDK_MPV }}" <<'PY'
+          import glob, os, subprocess, sys
+
+          ndk = sys.argv[1]
+          prebuilt = os.path.join(ndk, "toolchains/llvm/prebuilt/linux-x86_64")
+          readelf = os.path.join(prebuilt, "bin/llvm-readelf")
+
+          def dynsyms(path):
+              out = subprocess.run([readelf, "--dyn-syms", "-W", path],
+                                   capture_output=True, text=True).stdout
+              defined, undefined = set(), set()
+              for line in out.splitlines():
+                  parts = line.split()
+                  if len(parts) < 8 or not parts[0].endswith(":"):
+                      continue
+                  name = parts[7].split("@")[0]
+                  (undefined if parts[6] == "UND" else defined).add(name)
+              return defined, undefined
+
+          allowed = set()
+          for arch in ("aarch64-linux-android", "arm-linux-androideabi"):
+              for stub in glob.glob(os.path.join(prebuilt, "sysroot/usr/lib", arch, "21", "*.so")):
+                  allowed |= dynsyms(stub)[0]
+
+          libs = sorted(glob.glob("app/src/*/assets/mpv-libs/*/*.so"))
+          libs += sorted(glob.glob("third_party/exo-ass-native/prebuilt/*/*.so"))
+          bundled = set()
+          for lib in libs:
+              bundled |= dynsyms(lib)[0]
+
+          unresolved = 0
+          for lib in libs:
+              missing = sorted(s for s in dynsyms(lib)[1] if s not in allowed and s not in bundled)
+              print(f"{'OK' if not missing else 'UNRESOLVED':>10}  {lib} ({len(missing)})")
+              for name in missing:
+                  print("              ", name)
+              unresolved += len(missing)
+          print(f"libs={len(libs)} api21_stub_symbols={len(allowed)} unresolved={unresolved}")
+          if unresolved:
+              print("NOTE: the symbols listed above are absent from the API 21 stubs; "
+                    "those libraries would fail to load on Android 5.0")
+          PY
+
       - name: Pack rebuilt native assets
         run: |
           set -euo pipefail
@@ -168,7 +218,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: mpv-build-log-${{ github.run_id }}
-          path: webhtv/mpv-build.log
+          path: |
+            webhtv/mpv-build.log
+            webhtv/exo-ass-build.log
           if-no-files-found: ignore
           retention-days: 14
 

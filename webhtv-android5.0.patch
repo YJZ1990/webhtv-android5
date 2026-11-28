@@ -128,10 +128,28 @@ index 8562eb9..61dcef0 100644
  zipStoreBase=GRADLE_USER_HOME
  zipStorePath=wrapper/dists
 diff --git a/scripts/build_exo_ass_native.py b/scripts/build_exo_ass_native.py
-index 54d838c..082310c 100644
+index 54d838c..160bd43 100644
 --- a/scripts/build_exo_ass_native.py
 +++ b/scripts/build_exo_ass_native.py
-@@ -161,7 +161,7 @@ def main():
+@@ -66,11 +66,15 @@ def main():
+     toolchain = ndk / "toolchains/llvm/prebuilt" / host
+     prefix = work / "arm64-v8a/prefix"
+     prefix.mkdir(parents=True, exist_ok=True)
++    # Build the dependency set at the same API level as the final .so. NDK headers
++    # switch stdout/stderr, strerror_r and mkostemp availability on __ANDROID_API__,
++    # so a 24-built archive set cannot link into an android-21 shared library.
++    triple = "aarch64-linux-android" + str(lock["android"]["api"])
+     cross = work / "android-arm64.ini"
+     cross.write_text("\n".join([
+         "[binaries]",
+-        "c = '" + str(toolchain / "bin/aarch64-linux-android24-clang") + "'",
+-        "cpp = '" + str(toolchain / "bin/aarch64-linux-android24-clang++") + "'",
++        "c = '" + str(toolchain / "bin" / (triple + "-clang")) + "'",
++        "cpp = '" + str(toolchain / "bin" / (triple + "-clang++")) + "'",
+         "ar = '" + str(toolchain / "bin/llvm-ar") + "'",
+         "strip = '" + str(toolchain / "bin/llvm-strip") + "'",
+         "pkg-config = 'pkg-config'",
+@@ -161,7 +165,7 @@ def main():
      build = work / "arm64-v8a/jni"
      run(["cmake", "-S", native, "-B", build, "-G", "Ninja",
           "-DCMAKE_TOOLCHAIN_FILE=" + str(ndk / "build/cmake/android.toolchain.cmake"),
